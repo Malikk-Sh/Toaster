@@ -321,6 +321,51 @@ function drawCrumbs(){
   ctx.restore();
 }
 
+// ------------------------------ Пикапы (аптечка) ---------------------
+const pickups=[];
+function spawnPickup(x,y,kind){
+  pickups.push({x,y,vx:rand(-60,60),vy:-180,kind:kind||'heal',anim:rand(0,TAU),life:14});
+}
+function maybeDropHeal(x,y){
+  // редкая аптечка с убитого врага (чаще, если Брэд ранен)
+  const chance = brad.hp < brad.maxhp*0.5 ? 0.07 : 0.035;
+  if(Math.random()<chance) spawnPickup(x,Math.min(y,WORLD.groundY-20),'heal');
+}
+function updatePickups(dt){
+  for(let i=pickups.length-1;i>=0;i--){
+    const p=pickups[i]; p.life-=dt; p.anim+=dt*4;
+    if(p.life<=0){ pickups.splice(i,1); continue; }
+    const d2=dist2(p.x,p.y,brad.x,brad.y-brad.h*0.4);
+    if(brad.alive && d2<160*160){ const dx=brad.x-p.x, dy=(brad.y-brad.h*0.4)-p.y, d=Math.sqrt(d2)||1;
+      const pull=300*(1-d/160)+90; p.vx+=dx/d*pull*dt; p.vy+=dy/d*pull*dt; }
+    else p.vy+=700*dt;
+    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=(1-dt*0.9);
+    if(p.y>WORLD.groundY-10){ p.y=WORLD.groundY-10; p.vy*=-0.3; p.vx*=0.7; }
+    if(brad.alive && d2<(brad.w*0.7)**2){
+      const heal=Math.round(brad.maxhp*0.25);
+      brad.hp=Math.min(brad.maxhp, brad.hp+heal);
+      floatText(brad.x,brad.y-brad.h*0.9,'+'+heal,{color:'#9fe06a',size:20,font:'display',vy:-32});
+      Audio_.tone(660,0.1,'sine',0.14,990); Audio_.tone(880,0.12,'sine',0.12,1320,0.05);
+      burst(p.x,p.y,12,{colors:['#9fe06a','#d4f5a0','#fff'],smax:180,szmax:4,lmax:0.5});
+      pickups.splice(i,1);
+    }
+  }
+}
+function drawPickups(){
+  for(const p of pickups){
+    ctx.save(); ctx.translate(p.x, p.y+Math.sin(p.anim)*3);
+    ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(120,230,90,.4)';
+    ctx.beginPath(); ctx.arc(0,0,14,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+    // капсула-аптечка
+    ctx.fillStyle='#e8f6e0'; roundRect(-9,-9,18,18,4); ctx.fill();
+    ctx.fillStyle='#3a7a2a'; roundRect(-9,-9,18,9,4); ctx.fill();
+    // крест
+    ctx.fillStyle='#fff'; ctx.fillRect(-2,-6,4,12); ctx.fillRect(-6,-2,12,4);
+    ctx.fillStyle='#5aa83a'; ctx.fillRect(-1.5,-2,3,4); // нижняя половина креста зелёная
+    ctx.restore();
+  }
+}
+
 // ------------------------------ Записки (лор) ------------------------
 const NOTES=[
   {id:'n1', t:'Утиль-квитанция №404: «Тостер „Колос“, 1987 г.в. Состояние: рабочее. Причина списания: устарел морально.»'},

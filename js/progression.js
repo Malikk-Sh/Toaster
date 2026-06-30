@@ -23,40 +23,45 @@ const UPGRADE_TREE={
     {id:'fire2', name:'Жаркое клеймо',        desc:'Поджиг дольше и больнее',             cost:14},
     {id:'fire3', name:'Двойной выстрел',      desc:'Авто-атака бьёт двумя тостами',       cost:26},
     {id:'fire4', name:'Термоудар',            desc:'Заряженный взрыв крупнее и сильнее',  cost:40},
-    {id:'fireU', name:'УЛЬТРА: Тост-Апокалипсис', desc:'Ульта мощнее и длится дольше',    cost:70},
+    {id:'fire5', name:'Раскалённый залп',     desc:'Авто-атака чаще и +10% урон',         cost:56},
+    {id:'fireU', name:'УЛЬТРА: Тост-Апокалипсис', desc:'Ульта мощнее и длится дольше',    cost:80},
   ]},
   armor:{ name:'БРОНЯ', icon:'🛡', color:'#5aa6e0', nodes:[
     {id:'arm1', name:'Толстый корпус',        desc:'+30 к макс. нагреву (HP)',            cost:8},
     {id:'arm2', name:'Хромо-отражатель',      desc:'25% шанс отразить лёд',               cost:14},
     {id:'arm3', name:'Саморазогрев',          desc:'Медленная регенерация HP',            cost:26},
     {id:'arm4', name:'Цепная детонация',      desc:'Враги взрываются при гибели',         cost:40},
-    {id:'armU', name:'УЛЬТРА: Непробиваемый', desc:'Дольше i-кадры, рывок неуязвим',      cost:70},
+    {id:'arm5', name:'Печной щит',            desc:'Раз в волну поглощает один удар',     cost:56},
+    {id:'armU', name:'УЛЬТРА: Непробиваемый', desc:'Дольше i-кадры, рывок неуязвим',      cost:80},
   ]},
   speed:{ name:'СКОРОСТЬ', icon:'⚡', color:'#9fe06a', nodes:[
     {id:'spd1', name:'Лёгкий сплав',          desc:'+18% к скорости движения',            cost:8},
     {id:'spd2', name:'Турбо-ролики',          desc:'Рывок восстанавливается быстрее',     cost:14},
     {id:'spd3', name:'Тройной рывок',         desc:'+2 заряда рывка подряд',              cost:26},
     {id:'spd4', name:'Стрельба в рывке',      desc:'Стреляешь во время рывка',            cost:40},
-    {id:'spdU', name:'УЛЬТРА: Вихрь-Брэд',    desc:'В ульте быстрее, тосты чаще',         cost:70},
+    {id:'spd5', name:'Импульс-ускоритель',    desc:'+1 заряд рывка, ещё быстрее откат',   cost:56},
+    {id:'spdU', name:'УЛЬТРА: Вихрь-Брэд',    desc:'В ульте быстрее, тосты чаще',         cost:80},
   ]},
 };
 function applyUpgrades(){
   const o=Save.data.owned;
   brad.maxhp = 100 + (o.arm1?30:0);
-  brad.dmgMul = o.fire1?1.25:1;
+  brad.dmgMul = (o.fire1?1.25:1) * (o.fire5?1.1:1);
   brad.burnDmg = o.fire2?5:3;
   brad.burnMul = o.fire2?1.6:1;
   brad.doubleShot = !!o.fire3;
   brad.chargeAoeMul = o.fire4?1.5:1;
+  brad.fireRate = o.fire5?0.30:0.42;
   brad.ultBoost = !!o.fireU;
   brad.reflectChance = o.arm2?0.25:0;
   brad.regen = o.arm3?2.2:0;
   brad.enemyDeathExplode = !!o.arm4;
+  brad.shieldMax = o.arm5?1:0; brad.shield = brad.shieldMax;
   brad.toughIframes = o.armU?1.2:0.85;
   brad.ultArmor = !!o.armU;
   brad.moveMul = o.spd1?1.18:1;
-  brad.dashMax = 1 + (o.spd3?2:0);
-  brad.dashRegen = o.spd2?0.6:0.9;
+  brad.dashMax = 1 + (o.spd3?2:0) + (o.spd5?1:0);
+  brad.dashRegen = o.spd5?0.45 : (o.spd2?0.6:0.9);
   brad.fireInDash = !!o.spd4;
   brad.ultSpeed = !!o.spdU;
   if(brad.hp>brad.maxhp) brad.hp=brad.maxhp;

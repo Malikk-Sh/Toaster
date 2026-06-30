@@ -57,7 +57,7 @@ function onClimaxDefeated(){
 }
 function advanceZone(){
   game.zone++; game.climaxDefeated=false;
-  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; notes.length=0;
+  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; notes.length=0; pickups.length=0;
   boss.reset(); game.eliteActive=false; game.elite=null;
   buildWorld(); buildBg();
   brad.x=Math.min(260,WORLD.w*0.12); brad.y=WORLD.groundY-brad.h*0.5; brad.vx=0; brad.vy=0;

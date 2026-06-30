@@ -12,12 +12,13 @@ const brad={
   // модификаторы от апгрейдов (выставляются applyUpgrades)
   dmgMul:1, burnDmg:3, burnMul:1, doubleShot:false, chargeAoeMul:1, ultBoost:false,
   reflectChance:0, regen:0, enemyDeathExplode:false, toughIframes:0.85, ultArmor:false,
-  moveMul:1, fireInDash:false, ultSpeed:false,
+  moveMul:1, fireInDash:false, ultSpeed:false, shieldMax:0, shield:0,
   reset(){
     this.x=Math.min(260,WORLD.w*0.12); this.y=WORLD.groundY-this.h*0.5;
     this.vx=0;this.vy=0;this.hp=this.maxhp;this.alive=true;this.iframes=0;
     this.dashing=false;this.dashT=0;this.dashRegenT=0;this.dashLeft=this.dashMax;this.fireCD=0;this.charge=0;
     this.ult=0;this.ulting=false;this.ultT=0;this.facing=1;this.jumps=0;this.slow=0;
+    this.shield=this.shieldMax;
   },
   gainUlt(v){ if(!this.ulting) this.ult=clamp(this.ult+v,0,this.ultMax); },
   chill(sec){ if(!this.alive) return; this.slow=Math.max(this.slow,sec);
@@ -25,6 +26,14 @@ const brad={
       vx:rand(-30,30),vy:rand(-40,10),life:rand(0.3,0.6),max:0.6,size:rand(2,4),color:pick(['#bfe8ff','#dff4ff']),add:true}); },
   hurt(dmg,fromX){
     if(!this.alive || this.iframes>0 || this.dashing || this.ulting) return;
+    // печной щит поглощает один удар за волну
+    if(this.shield>0){
+      this.shield--; this.iframes=this.toughIframes; this.vx += sign(this.x-fromX)*180;
+      floatText(this.x,this.y-this.h*0.9,'ЩИТ',{color:'#bfe8ff',size:18,font:'display'});
+      Audio_.metal(); Cam.addShake(6);
+      burst(this.x,this.y-this.h*0.4,16,{kind:'spark',colors:['#bfe8ff','#fff','#9fd6f5'],smax:280,szmax:3});
+      return;
+    }
     this.hp-=dmg; this.iframes=this.toughIframes; this.vx += sign(this.x-fromX)*260; this.vy=-180;
     Audio_.hurt(); Cam.addShake(11);
     floatText(this.x,this.y-this.h*0.9,'-'+dmg,{color:'#ff5a4a',size:20});
@@ -186,6 +195,14 @@ const brad={
       ctx.globalCompositeOperation='source-over';
     }
 
+    // ----- печной щит (кольцо) -----
+    if(this.shield>0){
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      const sp=0.5+0.3*Math.sin(performance.now()/200);
+      ctx.strokeStyle=`rgba(150,210,255,${0.4+sp*0.4})`; ctx.lineWidth=2.5;
+      ctx.beginPath(); ctx.arc(0,-this.h*0.12, this.w*0.85,0,TAU); ctx.stroke();
+      ctx.globalCompositeOperation='source-over'; ctx.restore();
+    }
     // ----- ореол заряда/ульты -----
     if(this.glow>0.05 || this.ulting){
       ctx.globalCompositeOperation='lighter';

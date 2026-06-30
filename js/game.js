@@ -8,7 +8,7 @@ function startGame(){
   Audio_.init(); Audio_.resume();
   buildWorld(); buildBg();
   particles.length=0; toasts.length=0; enemies.length=0; crumbs.length=0; floaters.length=0;
-  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; notes.length=0; noteCard.t=0;
+  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; notes.length=0; noteCard.t=0; pickups.length=0;
   game.crumbs=0; game.kills=0; game.time=0; game.gen++; game.bossDefeated=false;
   applyUpgrades();
   brad.maxJumps=1; brad.reset();
@@ -88,6 +88,7 @@ function update(dt){
   updateIceWalls(dt);
   updateToasts(dt);
   updateCrumbs(dt);
+  updatePickups(dt);
   updateNotes(dt);
   updateParticles(dt);
   updateFloaters(dt);
@@ -114,6 +115,7 @@ function render(t){
     drawIceWalls();
     drawBoss();
     drawCrumbs();
+    drawPickups();
     drawNotes();
     for(const e of enemies) drawEnemy(e);
     for(const tt of toasts) drawToast(tt);

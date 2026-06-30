@@ -15,7 +15,7 @@ const ENEMY_DEFS={
 };
 function spawnEnemy(type,x,y){
   const d=ENEMY_DEFS[type];
-  const hp=Math.round(d.hp*diffMul());
+  const hp=Math.round(d.hp*(typeof enemyScale==='function'?enemyScale():diffMul()));
   const e={
     type,name:d.name,x,y:y!=null?y:WORLD.groundY-d.h*0.5,
     w:d.w,h:d.h,hp,maxhp:hp,color:d.color,speed:d.speed,contact:Math.round(d.contact*(1+(Save.data.ngPlus||0)*0.12)),
@@ -59,6 +59,7 @@ function killEnemy(e){
   for(let i=0;i<e.crumbs;i++) spawnCrumb(e.x+rand(-16,16), e.y-e.h*0.4);
   brad.gainUlt(big?20:6);
   maybeDropNote(e.x, e.y-e.h*0.5);
+  maybeDropHeal(e.x, e.y-e.h*0.5);
   // апгрейд «Цепная детонация»
   if(brad.enemyDeathExplode){
     const ex=e.x, ey=e.y-e.h*0.4, R=92;
