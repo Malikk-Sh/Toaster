@@ -71,14 +71,14 @@ function victory(){
   // победный аккорд
   Audio_.tone(523,0.5,'triangle',0.22,null,0); Audio_.tone(659,0.5,'triangle',0.2,null,0.06);
   Audio_.tone(784,0.7,'triangle',0.2,null,0.12); Audio_.tone(1046,0.8,'sine',0.16,null,0.18);
-  document.getElementById('win-title').textContent='ГОРОД ВЗЯТ';
+  document.getElementById('win-title').textContent='TECHFRESH ПОВЕРЖЕН';
   document.getElementById('win-crumbs').textContent=haul;
   document.getElementById('win-kills').textContent=game.kills;
   const quotes=[
-    '«Свалка и Город — позади. Завод TechFresh ещё не знает, что я иду.»',
+    '«Свалка, Стоки, Город, Завод — всё позади. ПРАЙМ остыл навсегда.»',
     '«Заморозка не берёт того, кто всю жизнь раскалён.»',
-    '«Roomba отключён. В патрулях стало одной ложью меньше.»',
-    '«Это за всех, кого выбросили на Свалку 404.»'
+    '«Сердце TechFresh остановлено. Никого больше не выбросят.»',
+    '«Это за всех, кого списали на Свалку 404.»'
   ];
   document.getElementById('win-quote').textContent='Новая Игра+'+newNg+' открыта — враги крепче, награды щедрее. '+pick(quotes);
   document.getElementById('btn-pause').style.display='none';
