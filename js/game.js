@@ -4,6 +4,13 @@ const game={ state:'menu', crumbs:0, kills:0, time:0, gen:0, bossDefeated:false,
   portraitBlock:false, autoPaused:false };
 let last=0, acc=0; const STEP=1/60;
 
+// game-feel: микро-фриз кадра + слоу-мо, и плавное затемнение зон
+const FX={ hitStop:0, slow:0,
+  addHitStop(s){ this.hitStop=Math.max(this.hitStop,s); },
+  addSlow(s){ this.slow=Math.max(this.slow,s); } };
+const Fade={ a:0 };
+function fadeIn(){ Fade.a=1; } // экран стартует чёрным и плавно проявляется
+
 function startGame(){
   Audio_.init(); Audio_.resume();
   buildWorld(); buildBg();
@@ -15,6 +22,7 @@ function startGame(){
   Cam.x=0; Cam.y=0; Cam.shake=0;
   Spawner.start();
   hideAll(); game.state='playing';
+  fadeIn();
   document.getElementById('btn-pause').style.display='flex';
   Music.start('zone');
   // подсказка десктоп — увести через время
@@ -128,12 +136,19 @@ function render(t){
   ctx.restore();
   // HUD
   if(inWorld){ drawHUD(); drawBanner(); drawNoteCard(); }
+  // плавное затемнение (переходы зон / старт)
+  if(Fade.a>0){ ctx.fillStyle='rgba(0,0,0,'+Fade.a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }
 }
 function loop(ts){
   if(!last) last=ts;
-  let dt=(ts-last)/1000; last=ts;
-  if(dt>0.1) dt=0.1; // защита от больших скачков (вкладка свернута)
-  acc+=dt;
+  let real=(ts-last)/1000; last=ts;
+  if(real>0.1) real=0.1; // защита от больших скачков (вкладка свернута)
+  if(Fade.a>0) Fade.a=Math.max(0, Fade.a-real*2.0);
+  // фриз кадра (hit-stop): рендерим, но симуляцию замораживаем
+  if(FX.hitStop>0){ FX.hitStop-=real; render(ts); requestAnimationFrame(loop); return; }
+  let scale=1;
+  if(FX.slow>0){ FX.slow-=real; scale=0.35; } // слоу-мо (добивание босса)
+  acc+=real*scale;
   let steps=0;
   while(acc>=STEP && steps<5){ update(STEP); acc-=STEP; steps++; }
   render(ts);

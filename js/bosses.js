@@ -64,6 +64,7 @@ function advanceZone(){
   Cam.x=0; Cam.y=0;
   Spawner.startZone();
   Music.setMode('zone');
+  fadeIn();
   const Z=curZone();
   bossBanner('ЗОНА: '+Z.name, Z.sub);
   Audio_.tone(523,0.3,'sine',0.16); Audio_.tone(784,0.3,'sine',0.16,null,0.1); Audio_.tone(1046,0.4,'sine',0.14,null,0.2);
@@ -76,7 +77,7 @@ function damageBoss(dmg,fx,fy,big){
 }
 function checkBossPhase(){ if(boss.active) boss.def().checkPhase(); }
 function updateBoss(dt){ if(!boss.active) return; boss.def().update(dt); }
-function bossDie(){ if(!boss.active || boss.state==='dying') return; boss.def().die(); }
+function bossDie(){ if(!boss.active || boss.state==='dying') return; FX.addHitStop(0.12); FX.addSlow(0.9); boss.def().die(); }
 function bossContactCheck(){ if(!boss.active || boss.state==='intro' || boss.state==='dying') return; boss.def().contact(); }
 function drawBoss(){ if(!boss.active) return; boss.def().draw(); }
 

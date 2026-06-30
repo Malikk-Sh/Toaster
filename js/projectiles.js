@@ -20,7 +20,7 @@ function explodeToast(t){
   const r = t.charged? (38+t.aoe) : 0;
   if(r>0){
     burst(t.x,t.y,26,{colors:['#ff6a00','#ffd23f','#ff2a00','#ffae42'],smax:340,grav:300,szmax:7,lmax:0.6});
-    Audio_.explode(); Cam.addShake(10);
+    Audio_.explode(); Cam.addShake(10); FX.addHitStop(0.03);
     for(const e of enemies){
       if(!e.dead && dist2(e.x,e.y-e.h*0.4,t.x,t.y) < (r+e.w*0.5)**2){
         damageEnemy(e, t.dmg, t.x, t.y, true);

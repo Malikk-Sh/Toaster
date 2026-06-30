@@ -41,7 +41,7 @@ const brad={
     if(this.hp<=0){ this.hp=0; this.die(); }
   },
   die(){
-    this.alive=false; this.ulting=false;
+    this.alive=false; this.ulting=false; FX.addHitStop(0.14);
     Audio_.tone(380,0.8,'sawtooth',0.3,60); Audio_.noise(0.7,0.25,800);
     burst(this.x,this.y-this.h*0.4,40,{colors:['#d9dde3','#ff8a1e','#ffd23f','#888'],smax:360,grav:400,szmax:7,lmax:1.0});
     Cam.addShake(16);
@@ -146,7 +146,7 @@ const brad={
   },
   startUlt(){
     this.ulting=true; this.ultT=this.ultBoost?4.2:2.8; this.ultPulse=0; this.ult=0; this.charge=0;
-    Audio_.ult(); Cam.addShake(14);
+    Audio_.ult(); Cam.addShake(14); FX.addHitStop(0.07);
     floatText(this.x,this.y-this.h*1.1, this.ultBoost?'ТОСТ-АПОКАЛИПСИС!':'ПОЛНЫЙ ПОДЖАРИГ!',{color:'#ffd23f',size:24,font:'display',life:1.3,vy:-30});
     // взрывная волна
     const wave=Math.round((this.ultBoost?34:24)*this.dmgMul);
@@ -176,8 +176,11 @@ const brad={
   },
   draw(){
     const wob = this.iframes>0 ? (Math.sin(performance.now()/40)*0.5+0.5) : 1;
+    // лёгкое «дыхание» в покое
+    const idle = this.onGround && Math.abs(this.vx)<24 && !this.charging && !this.ulting && this.alive;
+    const breath = idle ? Math.sin(performance.now()/620)*1.3 : 0;
     ctx.save();
-    ctx.translate(this.x,this.y);
+    ctx.translate(this.x,this.y+breath);
     // тень
     ctx.save(); ctx.globalAlpha=0.3; ctx.fillStyle='#000';
     const sc = clamp((WORLD.groundY-(this.y+this.h*0.5))/300,0,1);
