@@ -34,8 +34,8 @@ resize();
 const Cam={x:0,y:0, shake:0, shakeT:0,
   addShake(a){ this.shake=Math.max(this.shake,a); },
   update(dt,target){
-    // целимся чуть впереди по направлению взгляда
-    const look = target.facing*120;
+    // целимся чуть впереди по направлению взгляда (шире на широких экранах)
+    const look = target.facing*Math.min(230, VW*0.16);
     const tx = clamp(target.x+look - VW/2, 0, Math.max(0,WORLD.w-VW));
     const ty = clamp(target.y - VH*0.62, WORLD.groundY-VH+40, 0);
     this.x = lerp(this.x, tx, 1-Math.pow(0.001,dt));

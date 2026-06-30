@@ -1,6 +1,7 @@
 "use strict";
 const game={ state:'menu', crumbs:0, kills:0, time:0, gen:0, bossDefeated:false,
-  zone:0, climaxDefeated:false, eliteActive:false, elite:null };
+  zone:0, climaxDefeated:false, eliteActive:false, elite:null,
+  portraitBlock:false, autoPaused:false };
 let last=0, acc=0; const STEP=1/60;
 
 function startGame(){
@@ -137,6 +138,29 @@ function loop(ts){
   requestAnimationFrame(loop);
 }
 
+// ------------------------------ Ориентация (принудительный ландшафт) -
+// На сенсорных устройствах игра идёт только в ландшафте. В портрете
+// показываем оверлей «поверни устройство» и ставим бой на авто-паузу.
+function checkOrientation(){
+  const portrait = isTouch && (window.innerHeight > window.innerWidth);
+  const rot=document.getElementById('screen-rotate');
+  if(portrait){
+    if(!game.portraitBlock){
+      game.portraitBlock=true;
+      if(game.state==='playing'){ game.state='paused'; game.autoPaused=true; Music.duck(true); }
+    }
+    if(rot) rot.classList.remove('hidden');
+  } else {
+    if(game.portraitBlock){
+      game.portraitBlock=false;
+      if(game.autoPaused){ game.autoPaused=false; game.state='playing'; Music.duck(false); }
+    }
+    if(rot) rot.classList.add('hidden');
+  }
+}
+window.addEventListener('resize', checkOrientation);
+window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,160));
+
 // синхронизация состояния сенсорных кнопок (кольцо заряда, готовность ульты)
 document.getElementById('btn-play').addEventListener('click',startGame);
 document.getElementById('btn-restart').addEventListener('click',startGame);
@@ -161,4 +185,5 @@ Save.load().then(()=>{ applyUpgrades(); brad.hp=brad.maxhp; refreshMenu(); });
 
 // старт цикла
 buildWorld(); buildBg();
+checkOrientation();
 requestAnimationFrame(loop);
