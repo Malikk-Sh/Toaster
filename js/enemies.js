@@ -6,6 +6,11 @@ const ENEMY_DEFS={
   fan:{name:'Жара', hp:18, w:42, h:42, crumbs:2, color:'#caa15f', speed:118, contact:13},
   drone:{name:'Снек-Дрон', hp:13, w:30, h:26, crumbs:1, color:'#d8b15a', speed:158, contact:10},
   drill:{name:'Бурильщик', hp:40, w:54, h:40, crumbs:4, color:'#b06a3a', speed:70, contact:16},
+  kettle:{name:'Кипяток', hp:32, w:46, h:46, crumbs:3, color:'#c0c6cc', speed:46, contact:12},
+  mixer:{name:'Вихрь', hp:30, w:40, h:50, crumbs:3, color:'#c84a4a', speed:150, contact:16},
+  iron:{name:'Пресс', hp:58, w:56, h:38, crumbs:5, color:'#5a8ac0', speed:50, contact:16},
+  shock:{name:'Разряд', hp:15, w:32, h:32, crumbs:2, color:'#e8d24a', speed:120, contact:11},
+  mine:{name:'Хлопушка', hp:16, w:34, h:26, crumbs:2, color:'#b0a040', speed:128, contact:8},
   roomba:{name:'Roomba 9000', hp:420, w:96, h:60, crumbs:30, color:'#3a3f4a', speed:70, contact:18, elite:true},
 };
 function spawnEnemy(type,x,y){
@@ -33,6 +38,10 @@ function damageEnemy(e,dmg,fromX,fromY,big){
   // Бурильщик: уязвим со спины и особенно когда застрял
   if(e.type==='drill'){ const behind=(e.facing<0 && fromX>e.x)||(e.facing>0 && fromX<e.x); if(behind) mult=Math.max(mult,1.7);
     if(e.state==='stuck') mult=Math.max(mult,2.2); }
+  // Миксер: уязвим во время раскрутки после рывка
+  if(e.type==='mixer' && e.state==='recover') mult=Math.max(mult,2.0);
+  // Утюг: бронирован (получает мало урона), кроме момента выпуска пара
+  if(e.type==='iron') mult = e.state==='vent'? Math.max(mult,1.8) : mult*0.55;
   const final=Math.round(dmg*mult);
   e.hp-=final; e.flash=0.12; e.hurtBob=1;
   floatText(e.x+rand(-6,6), e.y-e.h*0.7, final.toString(),
@@ -86,12 +95,21 @@ function updateEnemies(dt){
     else if(e.type==='fan'){ updateFan(e,dt); }
     else if(e.type==='drone'){ updateDrone(e,dt); }
     else if(e.type==='drill'){ updateDrill(e,dt); }
+    else if(e.type==='kettle'){ updateKettle(e,dt); }
+    else if(e.type==='mixer'){ updateMixer(e,dt); }
+    else if(e.type==='iron'){ updateIron(e,dt); }
+    else if(e.type==='shock'){ updateShock(e,dt); }
+    else if(e.type==='mine'){ updateMine(e,dt); }
     else if(e.type==='roomba'){ updateRoomba(e,dt); }
+
+    // враг мог погибнуть в своей логике (мина-самоподрыв) — убираем и пропускаем
+    if(e.dead){ enemies.splice(i,1); continue; }
 
     // контакт с Брэдом
     if(brad.alive && !brad.dashing && Math.abs(e.x-brad.x)<(e.w+brad.w)*0.45 && Math.abs((e.y-e.h*0.4)-(brad.y-brad.h*0.4))<(e.h+brad.h)*0.45){
       if(e.type==='vac' && e.state==='lunge'){ vacExplode(e,i); continue; }
       else if(e.type==='fan' && e.state==='kamikaze'){ fanExplode(e,i); continue; }
+      else if(e.type==='mine'){ mineExplode(e); enemies.splice(i,1); continue; }
       else brad.hurt(e.contact, e.x);
     }
   }
@@ -187,6 +205,11 @@ function drawEnemy(e){
   else if(e.type==='fan') drawFan(e,fl);
   else if(e.type==='drone') drawDrone(e,fl);
   else if(e.type==='drill') drawDrill(e,fl);
+  else if(e.type==='kettle') drawKettle(e,fl);
+  else if(e.type==='mixer') drawMixer(e,fl);
+  else if(e.type==='iron') drawIron(e,fl);
+  else if(e.type==='shock') drawShock(e,fl);
+  else if(e.type==='mine') drawMine(e,fl);
   else if(e.type==='roomba') drawRoomba(e,fl);
   // полоска HP над врагом, если ранен (у элиты — своя сверху)
   if(e.hp<e.maxhp && !e.elite){
@@ -317,6 +340,208 @@ function drawDrill(e,fl){
   eyeRed(-w*0.1,-h*0.12,4); eyeRed(w*0.08,-h*0.12,4);
   if(e.state==='aim'){ ctx.globalCompositeOperation='lighter'; ctx.strokeStyle='rgba(255,80,40,.5)'; ctx.lineWidth=2; ctx.setLineDash([8,6]);
     ctx.beginPath(); ctx.moveTo(drillX+w*0.3,0); ctx.lineTo(drillX+w*0.3+360,0); ctx.stroke(); ctx.setLineDash([]); ctx.globalCompositeOperation='source-over'; }
+  ctx.restore();
+}
+
+// ====================================================================
+//  НОВЫЕ ВРАГИ (кухонные приборы)
+// ====================================================================
+
+// Чайник «Кипяток» — держит дистанцию, телеграфит свистком, лобит кипящие капли
+function updateKettle(e,dt){
+  e.y=WORLD.groundY-e.h*0.5;
+  const dx=brad.x-e.x, d=Math.abs(dx);
+  if(e.state==='idle'||e.state==='reposition'){
+    e.state='reposition';
+    if(d<240) e.x -= sign(dx)*e.speed*dt;       // отходим
+    else if(d>360) e.x += sign(dx)*e.speed*dt;  // подходим
+    if(e.t>1.6 && d<560){ e.state='whistle'; e.t=0; e.charge=0; Audio_.tone(880,0.3,'sine',0.05,1500); }
+  } else if(e.state==='whistle'){
+    e.charge=clamp(e.t/1.0,0,1);
+    if(Math.random()<0.6) spawnParticle({x:e.x+e.facing*e.w*0.5,y:e.y-e.h*0.35,vx:e.facing*20,vy:-rand(30,70),
+      life:rand(0.3,0.6),max:0.6,size:rand(2,5),color:'rgba(255,255,255,.6)',add:true,grav:-30});
+    if(e.t>=1.0){ e.state='spray'; e.t=0; e.shots=randi(2,3); e.fire=0; }
+  } else if(e.state==='spray'){
+    e.fire-=dt;
+    if(e.fire<=0 && e.shots>0){ e.fire=0.24; e.shots--;
+      spawnGlob(e.x+e.facing*e.w*0.45, e.y-e.h*0.3, brad.x+rand(-50,50), brad.y-brad.h*0.4, {dmg:12,size:11});
+      Audio_.noise(0.1,0.1,1400); }
+    if(e.shots<=0 && e.t>0.4){ e.state='reposition'; e.t=0; }
+  }
+}
+function drawKettle(e,fl){
+  const w=e.w,h=e.h,f=e.facing;
+  ctx.save(); ctx.scale(f,1);
+  ctx.fillStyle=fl?'#fff':'#9aa0a8'; roundRect(-w*0.42,-h*0.3,w*0.84,h*0.7,h*0.3); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#c0c6cc'; roundRect(-w*0.42,-h*0.3,w*0.84,h*0.34,h*0.25); ctx.fill();
+  // носик
+  ctx.fillStyle='#7a8088'; ctx.beginPath(); ctx.moveTo(w*0.34,-h*0.05); ctx.lineTo(w*0.62,-h*0.28); ctx.lineTo(w*0.6,-h*0.1); ctx.lineTo(w*0.4,h*0.08); ctx.closePath(); ctx.fill();
+  // ручка
+  ctx.strokeStyle='#5a6068'; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(-w*0.05,-h*0.32,w*0.26,Math.PI*0.95,Math.PI*0.05,true); ctx.stroke();
+  ctx.fillStyle='#6a7078'; ctx.beginPath(); ctx.arc(-w*0.05,-h*0.3,4,0,TAU); ctx.fill();
+  if(e.state==='whistle'){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,255,255,.4)';
+    ctx.beginPath(); ctx.arc(w*0.55,-h*0.34-Math.sin(e.t*20)*3, 6+e.charge*5,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
+  eyeRed(-w*0.12,-h*0.02,4); eyeRed(w*0.08,-h*0.02,4);
+  ctx.restore();
+}
+
+// Миксер «Вихрь» — быстрый дашер; после рывка уязвим (раскрутка)
+function updateMixer(e,dt){
+  e.y=WORLD.groundY-e.h*0.5;
+  const dx=brad.x-e.x, d=Math.abs(dx);
+  if(e.state==='idle'||e.state==='chase'){
+    e.state='chase';
+    e.x += sign(dx)*e.speed*dt;
+    if(d<300 && e.t>0.8){ e.state='windup'; e.t=0; e.dir=sign(dx)||1; Audio_.tone(200,0.3,'sawtooth',0.1,420); }
+  } else if(e.state==='windup'){
+    e.x -= e.dir*50*dt;
+    if(e.t>0.45){ e.state='dash'; e.t=0; e.vx=e.dir*640; Audio_.noise(0.2,0.12,2000); }
+  } else if(e.state==='dash'){
+    e.x += e.vx*dt; e.vx*=(1-dt*1.2);
+    e.x=clamp(e.x, e.w*0.5, WORLD.w-e.w*0.5);
+    if(Math.random()<0.5) spawnParticle({x:e.x-e.dir*e.w*0.4,y:e.y+rand(-10,12),vx:-e.dir*120,vy:rand(-30,30),life:0.25,max:0.25,size:rand(2,5),color:pick(['#ffd27a','#c84a4a','#fff']),add:true});
+    if(e.t>0.5 || Math.abs(e.vx)<120){ e.state='recover'; e.t=0; }
+  } else if(e.state==='recover'){
+    if(e.t>0.9){ e.state='chase'; e.t=0; }
+  }
+}
+function drawMixer(e,fl){
+  const w=e.w,h=e.h,f=e.facing;
+  ctx.save(); ctx.scale(f,1);
+  const spin = (e.state==='dash')? e.t*60 : (e.state==='windup')? e.t*34 : e.anim*4;
+  ctx.fillStyle=fl?'#fff':'#a83a3a'; roundRect(-w*0.4,-h*0.42,w*0.8,h*0.5,8); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#c84a4a'; roundRect(-w*0.4,-h*0.42,w*0.8,h*0.25,8); ctx.fill();
+  ctx.fillStyle='#7a2a2a'; roundRect(-w*0.18,-h*0.56,w*0.36,h*0.18,4); ctx.fill();
+  ctx.strokeStyle='#cfd6dc'; ctx.lineWidth=2.5;
+  for(const bx of [-w*0.18,w*0.18]){
+    ctx.fillStyle='#9aa0a8'; ctx.fillRect(bx-1.5,h*0.05,3,h*0.16);
+    ctx.save(); ctx.translate(bx,h*0.3); ctx.rotate(spin);
+    ctx.strokeStyle='#cfd6dc'; ctx.beginPath(); ctx.ellipse(0,0,w*0.12,h*0.16,0,0,TAU); ctx.stroke();
+    ctx.rotate(TAU/4); ctx.beginPath(); ctx.ellipse(0,0,w*0.12,h*0.16,0,0,TAU); ctx.stroke();
+    ctx.restore();
+  }
+  eyeRed(-w*0.1,-h*0.22,4); eyeRed(w*0.1,-h*0.22,4);
+  if(e.state==='recover'){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,210,80,.25)'; ctx.beginPath(); ctx.arc(0,0,w*0.5,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
+  ctx.restore();
+}
+
+// Утюг «Пресс» — бронирован, прыгает и бьёт вниз → ударная волна; уязвим при выпуске пара
+function updateIron(e,dt){
+  const groundYc=WORLD.groundY-e.h*0.5;
+  if(e.state==='idle'||e.state==='approach'){
+    e.state='approach'; e.y=groundYc;
+    e.x += sign(brad.x-e.x)*e.speed*dt;
+    if(Math.abs(brad.x-e.x)<360 && e.t>1.2){ e.state='leap'; e.t=0; e.vy=-580; e.vx=sign(brad.x-e.x)*200; Audio_.tone(170,0.2,'square',0.12,320); }
+  } else if(e.state==='leap'){
+    e.vy+=1800*dt; e.x+=e.vx*dt; e.y+=e.vy*dt;
+    e.x=clamp(e.x, e.w*0.5, WORLD.w-e.w*0.5);
+    if(e.y>=groundYc && e.vy>0){ e.y=groundYc; e.state='slam'; e.t=0; ironSlam(e); }
+  } else if(e.state==='slam'){
+    e.y=groundYc; if(e.t>0.5){ e.state='vent'; e.t=0; }
+  } else if(e.state==='vent'){
+    e.y=groundYc;
+    if(Math.random()<0.5) spawnParticle({x:e.x+rand(-e.w*0.3,e.w*0.3),y:e.y+e.h*0.3,vx:rand(-20,20),vy:-rand(20,50),life:rand(0.3,0.6),max:0.6,size:rand(3,6),color:'rgba(220,235,255,.6)',add:true,grav:-20});
+    if(e.t>1.1){ e.state='approach'; e.t=0; }
+  }
+}
+function ironSlam(e){
+  Audio_.tone(80,0.3,'sawtooth',0.2,40); Audio_.noise(0.3,0.18,1200); Cam.addShake(9);
+  burst(e.x,WORLD.groundY-6,16,{colors:['#caa15f','#8a6a3a','#fff'],smax:260,grav:300,szmax:5});
+  spawnGroundWave(e.x-e.w*0.4, -1, {dmg:14,speed:360});
+  spawnGroundWave(e.x+e.w*0.4, 1, {dmg:14,speed:360});
+}
+function drawIron(e,fl){
+  const w=e.w,h=e.h,f=e.facing;
+  ctx.save(); ctx.scale(f,1);
+  // подошва (трапеция, носик вперёд)
+  ctx.fillStyle=fl?'#fff':'#3a5a80';
+  ctx.beginPath(); ctx.moveTo(-w*0.44,h*0.3); ctx.lineTo(w*0.5,h*0.12); ctx.lineTo(w*0.5,h*0.34); ctx.lineTo(-w*0.4,h*0.46); ctx.closePath(); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#5a8ac0'; roundRect(-w*0.42,-h*0.2,w*0.8,h*0.4,6); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#7aa6d8'; roundRect(-w*0.42,-h*0.2,w*0.8,h*0.2,6); ctx.fill();
+  ctx.strokeStyle='#2a3a4a'; ctx.lineWidth=6; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(-w*0.3,-h*0.18); ctx.quadraticCurveTo(0,-h*0.74,w*0.28,-h*0.18); ctx.stroke();
+  ctx.fillStyle='#1a2a3a'; for(let k=0;k<4;k++){ ctx.beginPath(); ctx.arc(-w*0.2+k*w*0.16, h*0.34, 2,0,TAU); ctx.fill(); }
+  eyeRed(-w*0.1,-h*0.04,4); eyeRed(w*0.1,-h*0.04,4);
+  if(e.state==='vent'){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(220,235,255,.3)';
+    for(let k=0;k<3;k++){ ctx.beginPath(); ctx.arc(-w*0.2+k*w*0.2, h*0.42+Math.sin(e.t*10+k)*3, 5,0,TAU); ctx.fill(); }
+    ctx.globalCompositeOperation='source-over'; }
+  ctx.restore();
+  // тень-телеграф при прыжке
+  if(e.state==='leap'){
+    const gy=WORLD.groundY-e.y;
+    ctx.save(); ctx.globalAlpha=0.55; ctx.strokeStyle='#ff5a40'; ctx.lineWidth=2; ctx.setLineDash([6,5]);
+    ctx.beginPath(); ctx.ellipse(0,gy,w*0.5,8,0,0,TAU); ctx.stroke(); ctx.setLineDash([]); ctx.restore();
+  }
+}
+
+// Электро-зарядка «Разряд» — летун, очередями стреляет электро-болтами
+function updateShock(e,dt){
+  e.bob=(e.bob||rand(0,TAU))+dt*6;
+  const dx=brad.x-e.x, d=Math.abs(dx)||1;
+  const want = d>360? 1 : d<240? -1 : 0;
+  e.x += sign(dx)*want*e.speed*dt;
+  e.y = lerp(e.y, clamp(brad.y-115, WORLD.groundY-320, WORLD.groundY-80), 1-Math.pow(0.08,dt)) + Math.sin(e.bob)*0.6;
+  e.shootCD=(e.shootCD==null?1.4:e.shootCD)-dt;
+  if(e.shootCD<=0 && e.state!=='burst'){ e.state='burst'; e.t=0; e.shots=3; e.fire=0; Audio_.tone(320,0.2,'square',0.08,820); }
+  if(e.state==='burst'){
+    e.fire-=dt;
+    if(e.fire<=0 && e.shots>0){ e.fire=0.16; e.shots--;
+      const ang=Math.atan2((brad.y-brad.h*0.4)-e.y, brad.x-e.x)+rand(-0.08,0.08);
+      spawnBolt(e.x,e.y,ang,{dmg:9,speed:660}); Audio_.shoot(); }
+    if(e.shots<=0){ e.state='idle'; e.shootCD=rand(1.7,2.5); }
+  }
+}
+function drawShock(e,fl){
+  const w=e.w,h=e.h,f=e.facing;
+  ctx.save();
+  if(e.state==='burst'){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,240,120,.3)'; ctx.beginPath(); ctx.arc(0,0,w*0.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
+  ctx.scale(f,1);
+  ctx.fillStyle=fl?'#fff':'#bfae3a'; roundRect(-w*0.4,-h*0.4,w*0.8,h*0.8,6); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#e8d24a'; roundRect(-w*0.4,-h*0.4,w*0.8,h*0.4,6); ctx.fill();
+  ctx.fillStyle='#5a5a3a'; ctx.fillRect(w*0.36,-h*0.16,w*0.2,5); ctx.fillRect(w*0.36,h*0.06,w*0.2,5);
+  eyeRed(-w*0.1,-h*0.06,4); eyeRed(w*0.08,-h*0.06,4);
+  ctx.strokeStyle='rgba(255,250,180,.8)'; ctx.lineWidth=1.6;
+  for(let k=0;k<2;k++){ const a=e.anim*3+k*3; ctx.beginPath(); ctx.moveTo(Math.cos(a)*w*0.4,Math.sin(a)*h*0.4);
+    ctx.lineTo(Math.cos(a)*w*0.62,Math.sin(a)*h*0.6); ctx.stroke(); }
+  ctx.restore();
+}
+
+// Робот-мина «Хлопушка» — семенит к Брэду и самоподрывается (телеграф)
+function updateMine(e,dt){
+  e.y=WORLD.groundY-e.h*0.5;
+  const dx=brad.x-e.x, d=Math.abs(dx);
+  if(e.state==='idle'||e.state==='scuttle'){
+    e.state='scuttle';
+    e.x += sign(dx)*e.speed*dt;
+    if(d<92){ e.state='prime'; e.t=0; Audio_.tone(720,0.1,'square',0.1,940); }
+  } else if(e.state==='prime'){
+    if(Math.floor(e.t*8)!==Math.floor((e.t-dt)*8)) Audio_.tone(940,0.05,'square',0.08,1200);
+    if(Math.random()<0.4) spawnParticle({x:e.x+rand(-e.w*0.3,e.w*0.3),y:e.y-e.h*0.2,vx:rand(-20,20),vy:-rand(10,40),life:0.3,max:0.3,size:rand(2,4),color:'#ff5a40',add:true});
+    if(e.t>0.75){ mineExplode(e); }
+  }
+}
+function mineExplode(e){
+  if(e.dead) return;
+  const R=110;
+  burst(e.x,e.y-e.h*0.3,22,{colors:['#fff','#ffd23f','#ff6a00','#ff2a00'],smax:340,grav:200,szmax:7});
+  spawnParticle({x:e.x,y:e.y-e.h*0.3,vx:0,vy:0,life:0.2,max:0.2,size:R*0.7,color:'#ffae42',add:true,shrink:false});
+  Audio_.explode(); Cam.addShake(10);
+  if(brad.alive && !brad.dashing && dist2(brad.x,brad.y-brad.h*0.4,e.x,e.y-e.h*0.3)<R*R) brad.hurt(16,e.x);
+  killEnemy(e);
+}
+function drawMine(e,fl){
+  const w=e.w,h=e.h;
+  ctx.save();
+  const swell = e.state==='prime'? 1+Math.sin(e.t*24)*0.08 : 1;
+  ctx.scale(swell,swell);
+  ctx.strokeStyle='#3a3a2a'; ctx.lineWidth=2;
+  for(const lx of [-w*0.3,-w*0.1,w*0.1,w*0.3]){ ctx.beginPath(); ctx.moveTo(lx,h*0.18); ctx.lineTo(lx*1.25,h*0.5); ctx.stroke(); }
+  ctx.fillStyle='#5a5020'; for(let k=0;k<6;k++){ const a=k*TAU/6; ctx.save(); ctx.rotate(a); ctx.fillRect(w*0.36,-2,5,4); ctx.restore(); }
+  ctx.fillStyle=fl?'#fff':'#7a7030'; ctx.beginPath(); ctx.arc(0,0,w*0.42,0,TAU); ctx.fill();
+  ctx.fillStyle=fl?'#fff':'#b0a040'; ctx.beginPath(); ctx.arc(-w*0.1,-w*0.1,w*0.26,0,TAU); ctx.fill();
+  const on = e.state==='prime'? (Math.floor(e.t*12)%2===0) : (Math.floor(performance.now()/500)%2===0);
+  if(on){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,60,40,.7)'; ctx.beginPath(); ctx.arc(0,-h*0.05,7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
+  ctx.fillStyle= on? '#ff5a40':'#7a2a22'; ctx.beginPath(); ctx.arc(0,-h*0.05,3.5,0,TAU); ctx.fill();
   ctx.restore();
 }
 

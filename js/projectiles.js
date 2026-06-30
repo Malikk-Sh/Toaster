@@ -126,11 +126,37 @@ function spawnBullet(x,y,ang,opt={}){
     size:opt.size||6,dmg:opt.dmg||10,kind:'bullet',chill:false,
     life:opt.life||2.4,rot:rand(0,TAU),spin:rand(-14,14),trail:0});
 }
+// кипящая капля Чайника — по дуге, поджаривает при попадании
+function spawnGlob(x,y,tx,ty,opt={}){
+  const dx=tx-x, dy=ty-y;
+  const T=clamp(Math.abs(dx)/360, 0.35, 0.95);
+  const G=PROJ_G*0.6;
+  const vx=dx/T, vy=dy/T - 0.5*G*T;
+  bossShots.push({x,y,vx,vy,g:G,size:opt.size||11,dmg:opt.dmg||12,kind:'glob',chill:false,
+    life:3.0,rot:rand(0,TAU),spin:rand(-4,4),trail:0});
+}
+// электро-болт зарядки — быстрый, почти прямой, короткий стан
+function spawnBolt(x,y,ang,opt={}){
+  const sp=opt.speed||640;
+  bossShots.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,g:opt.g!=null?opt.g:40,
+    size:opt.size||7,dmg:opt.dmg||9,kind:'bolt',chill:!!opt.stun,chillSec:opt.stun||0,stunCol:true,
+    life:opt.life||2.0,rot:ang,spin:0,trail:0});
+}
+// ударная волна Утюга — катится по земле, надо перепрыгнуть
+function spawnGroundWave(x,dir,opt={}){
+  bossShots.push({x,y:WORLD.groundY-12,vx:dir*(opt.speed||380),vy:0,g:0,
+    size:opt.size||16,dmg:opt.dmg||14,kind:'wave',chill:false,
+    life:opt.life||1.6,rot:0,spin:0,trail:0});
+}
 function updateBossShots(dt){
   for(let i=bossShots.length-1;i>=0;i--){
     const s=bossShots[i]; s.life-=dt; s.vy+=s.g*dt; s.x+=s.vx*dt; s.y+=s.vy*dt; s.rot+=s.spin*dt; s.trail-=dt;
     if(s.trail<=0){ s.trail=0.04;
-      const tc = s.kind==='bullet'? ['#ffd27a','#ff8a1e','#caa15f'] : ['#bfe8ff','#8fd2ff','#dff4ff'];
+      const tc = s.kind==='bullet'? ['#ffd27a','#ff8a1e','#caa15f']
+        : s.kind==='glob'? ['#ffae42','#ff6a00','#ffd23f']
+        : s.kind==='bolt'? ['#fff7a0','#9fd0ff','#fff']
+        : s.kind==='wave'? ['#caa15f','#ffd27a','#8a6a3a']
+        : ['#bfe8ff','#8fd2ff','#dff4ff'];
       spawnParticle({x:s.x,y:s.y,vx:rand(-15,15),vy:rand(-5,20),life:rand(0.18,0.36),max:0.36,
         size:rand(2,4),color:pick(tc),add:true,grav:30}); }
     // попадание в Брэда
@@ -139,7 +165,7 @@ function updateBossShots(dt){
         floatText(brad.x,brad.y-brad.h*0.9,'ОТРАЖЕНО',{color:'#bfe8ff',size:16,font:'display'});
         shotShatter(s); Audio_.metal(); bossShots.splice(i,1); continue;
       }
-      brad.hurt(s.dmg, s.x); if(s.chill) brad.chill(1.6);
+      brad.hurt(s.dmg, s.x); if(s.chill) brad.chill(s.chillSec||1.6);
       shotShatter(s); bossShots.splice(i,1); continue;
     }
     // земля/платформа
@@ -152,6 +178,11 @@ function updateBossShots(dt){
 function shotShatter(s){
   if(s.kind==='bullet'){ Audio_.tone(rand(500,700),0.04,'square',0.06,200);
     burst(s.x,s.y,5,{colors:['#ffd27a','#caa15f','#fff'],smax:160,grav:300,szmax:3,lmax:0.3}); }
+  else if(s.kind==='glob'){ Audio_.noise(0.06,0.08,2200);
+    burst(s.x,s.y,8,{colors:['#ffae42','#ff6a00','#ffd23f'],smax:180,grav:120,szmax:5,lmax:0.4}); }
+  else if(s.kind==='bolt'){ Audio_.tone(rand(900,1300),0.05,'square',0.07,400);
+    burst(s.x,s.y,6,{kind:'spark',colors:['#fff7a0','#9fd0ff','#fff'],smax:220,szmax:3,lmax:0.25,grav:60}); }
+  else if(s.kind==='wave'){ burst(s.x,s.y,5,{colors:['#caa15f','#8a6a3a'],smax:140,grav:200,szmax:3,lmax:0.3}); }
   else iceShatter(s.x,s.y);
 }
 function iceShatter(x,y){
@@ -167,6 +198,27 @@ function drawBossShots(){
       ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
       ctx.fillStyle='#6a5a3a'; roundRect(-z,-z*0.7,z*2,z*1.4,2); ctx.fill();
       ctx.fillStyle='#caa15f'; roundRect(-z*0.7,-z*0.5,z*1.4,z*1.0,1); ctx.fill();
+    } else if(s.kind==='glob'){
+      // кипящая капля
+      ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,150,50,.5)';
+      ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#ff8a1e'; ctx.beginPath(); ctx.arc(0,0,z,0,TAU); ctx.fill();
+      ctx.fillStyle='#ffd23f'; ctx.beginPath(); ctx.arc(-z*0.3,-z*0.3,z*0.45,0,TAU); ctx.fill();
+    } else if(s.kind==='bolt'){
+      // электро-болт (ромб + искра)
+      ctx.globalCompositeOperation='lighter';
+      ctx.fillStyle='rgba(170,210,255,.6)'; ctx.beginPath(); ctx.arc(0,0,z*1.8,0,TAU); ctx.fill();
+      ctx.strokeStyle='#fff7a0'; ctx.lineWidth=2.4;
+      ctx.beginPath(); ctx.moveTo(-z*1.6,0); ctx.lineTo(-z*0.3,-z*0.6); ctx.lineTo(z*0.3,z*0.6); ctx.lineTo(z*1.6,0); ctx.stroke();
+      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.moveTo(0,-z); ctx.lineTo(z*0.7,0); ctx.lineTo(0,z); ctx.lineTo(-z*0.7,0); ctx.closePath(); ctx.fill();
+      ctx.globalCompositeOperation='source-over';
+    } else if(s.kind==='wave'){
+      // низкая ударная волна по земле
+      ctx.globalCompositeOperation='lighter';
+      ctx.fillStyle='rgba(255,200,120,.4)';
+      ctx.beginPath(); ctx.ellipse(0,0,z*1.4,z*2.0,0,0,TAU); ctx.fill();
+      ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#caa15f'; ctx.beginPath(); ctx.ellipse(0,0,z*0.8,z*1.5,0,0,TAU); ctx.fill();
     } else {
       ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(150,210,255,.45)';
       ctx.beginPath(); ctx.arc(0,0,z*1.6,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
