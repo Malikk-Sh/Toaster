@@ -75,14 +75,16 @@ function drawBossBar(top){
   // имя
   ctx.textAlign='center'; ctx.textBaseline='alphabetic';
   ctx.font="900 14px 'Russo One',sans-serif";
-  ctx.fillStyle='#dff4ff'; ctx.fillText('❄ ОГРОМНЫЙ ХОЛОДИЛЬНИК', VW/2, by-4);
+  const def=boss.def();
+  ctx.fillStyle='#dff4ff'; ctx.fillText(def.barName, VW/2, by-4);
   // рамка
   ctx.fillStyle='rgba(0,0,0,.5)'; roundRect(bx-3,by-1,bw+6,bh+6,5); ctx.fill();
   ctx.fillStyle='#101820'; roundRect(bx,by+1,bw,bh,4); ctx.fill();
   const frac=clamp(boss.hp/boss.maxhp,0,1);
   const g=ctx.createLinearGradient(bx,0,bx+bw,0);
+  const tint=def.barTint||['#5aa6e0','#8fd2ff','#dff4ff'];
   if(boss.phase===3){ g.addColorStop(0,'#ff3b30'); g.addColorStop(1,'#ff8a4a'); }
-  else { g.addColorStop(0,'#5aa6e0'); g.addColorStop(0.5,'#8fd2ff'); g.addColorStop(1,'#dff4ff'); }
+  else { g.addColorStop(0,tint[0]); g.addColorStop(0.5,tint[1]); g.addColorStop(1,tint[2]); }
   ctx.fillStyle=g; roundRect(bx,by+1,bw*frac,bh,4); ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.22)'; roundRect(bx,by+1,bw*frac,bh*0.42,4); ctx.fill();
   // пороги фаз (50% и 20%)
@@ -90,8 +92,7 @@ function drawBossBar(top){
   ctx.fillRect(bx+bw*0.5,by+1,2,bh); ctx.fillRect(bx+bw*0.2,by+1,2,bh);
   // пип-индикатор фазы
   ctx.font="700 10px 'Rubik',sans-serif"; ctx.fillStyle='#bfe8ff';
-  const ph = boss.phase===1?'ФАЗА 1 · ЛЁД' : boss.phase===2?'ФАЗА 2 · КОМПРЕССОР ОТКРЫТ' : 'ФАЗА 3 · БЕРСЕРК';
-  ctx.fillText(ph, VW/2, by+bh+14);
+  ctx.fillText(def.phaseLabel(), VW/2, by+bh+14);
 }
 function drawEliteBar(top, e){
   const bw=Math.min(VW*0.66, 420), bx=VW/2-bw/2, by=top+14, bh=14;
