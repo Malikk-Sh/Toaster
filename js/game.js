@@ -149,6 +149,8 @@ function loop(ts){
   let real=(ts-last)/1000; last=ts;
   if(real>0.1) real=0.1; // защита от больших скачков (вкладка свернута)
   if(Fade.a>0) Fade.a=Math.max(0, Fade.a-real*2.0);
+  // пролог-катсцена — свой update/draw поверх обычного цикла
+  if(game.state==='cutscene'){ Cutscene.update(real); Cutscene.render(ts); requestAnimationFrame(loop); return; }
   // фриз кадра (hit-stop): рендерим, но симуляцию замораживаем
   if(FX.hitStop>0){ FX.hitStop-=real; render(ts); requestAnimationFrame(loop); return; }
   let scale=1;
@@ -184,7 +186,9 @@ window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,160));
 
 // синхронизация состояния сенсорных кнопок (кольцо заряда, готовность ульты)
-document.getElementById('btn-play').addEventListener('click',startGame);
+// «Играть» из меню → авто-пролог, затем забег (скипабельно). Рестарты — сразу в бой.
+document.getElementById('btn-play').addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); Cutscene.start(startGame); });
+document.getElementById('btn-skip-cut').addEventListener('click',()=>Cutscene.skip());
 document.getElementById('btn-restart').addEventListener('click',startGame);
 document.getElementById('btn-restart-p').addEventListener('click',startGame);
 document.getElementById('btn-win-restart').addEventListener('click',startGame);
