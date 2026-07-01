@@ -31,6 +31,7 @@ const Spawner={
       if(this.wave>=zw && !game.climaxDefeated){ startClimax(); return; }
       // волна зачищена
       floatText(brad.x,brad.y-90,'ВОЛНА '+this.wave+' ЗАЧИЩЕНА',{color:'#9fe06a',size:20,font:'display',life:1.4,vy:-26});
+      if(Math.random()<0.5 && typeof maybeSay==='function') maybeSay(brad,'waveClear',6000);
       const heal=Math.min(brad.maxhp-brad.hp, Math.round(brad.maxhp*0.16));
       if(heal>0){ brad.hp+=heal; floatText(brad.x,brad.y-60,'+'+heal,{color:'#9fe06a',size:16,vy:-30}); }
       if(brad.shieldMax>0) brad.shield=brad.shieldMax; // перезарядка щита между волнами

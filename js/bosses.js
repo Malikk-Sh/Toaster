@@ -32,6 +32,8 @@ function startBossKind(kind){
   boss.spawn(kind);
   Music.setMode('boss');
   boss.def().onStart();
+  if(typeof bossLine==='function') bossLine('intro');
+  if(typeof maybeSay==='function') maybeSay(brad,'bossSpot',0);
 }
 // совместимость со старыми вызовами
 function startBoss(){ startBossKind('fridge'); }
@@ -57,7 +59,7 @@ function onClimaxDefeated(){
 }
 function advanceZone(){
   game.zone++; game.climaxDefeated=false;
-  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; notes.length=0; pickups.length=0;
+  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; pickups.length=0; clearSpeeches();
   boss.reset(); game.eliteActive=false; game.elite=null;
   buildWorld(); buildBg();
   brad.x=Math.min(260,WORLD.w*0.12); brad.y=WORLD.groundY-brad.h*0.5; brad.vx=0; brad.vy=0;
@@ -67,6 +69,7 @@ function advanceZone(){
   fadeIn();
   const Z=curZone();
   bossBanner('ЗОНА: '+Z.name, Z.sub);
+  if(typeof maybeSay==='function') maybeSay(brad,'zone',0);
   Audio_.tone(523,0.3,'sine',0.16); Audio_.tone(784,0.3,'sine',0.16,null,0.1); Audio_.tone(1046,0.4,'sine',0.14,null,0.2);
 }
 
@@ -75,7 +78,7 @@ function damageBoss(dmg,fx,fy,big){
   if(!boss.active || boss.state==='intro' || boss.state==='dying') return;
   boss.def().damage(dmg,fx,fy,big);
 }
-function checkBossPhase(){ if(boss.active) boss.def().checkPhase(); }
+function checkBossPhase(){ if(!boss.active) return; const prev=boss.phase; boss.def().checkPhase(); if(boss.phase===3 && prev<3 && typeof bossLine==='function') bossLine('p3'); }
 function updateBoss(dt){ if(!boss.active) return; boss.def().update(dt); }
 function bossDie(){ if(!boss.active || boss.state==='dying') return; FX.addHitStop(0.12); FX.addSlow(0.9); boss.def().die(); }
 function bossContactCheck(){ if(!boss.active || boss.state==='intro' || boss.state==='dying') return; boss.def().contact(); }

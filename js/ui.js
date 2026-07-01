@@ -211,7 +211,6 @@ function refreshMenu(){
   const owned=Object.keys(Save.data.owned).length;
   const ng=Save.data.ngPlus||0;
   let line = '🍞 Крошек в банке: <b style="color:#f2c879">'+Save.data.bank+'</b> · апгрейдов: <b style="color:#9fe06a">'+owned+'</b>';
-  line += '<br>📄 Записок: <b style="color:#e8dcc4">'+notesFoundCount()+' / '+NOTES.length+'</b>';
   if(ng>0) line += ' · <b style="color:#ff7a6a">Новая Игра+'+ng+'</b>';
   if(Save.data.bossKills>0) line += '<br>🏆 Полных прохождений: '+Save.data.bossKills;
   else if(Save.data.bestWave>0) line += '<br>Рекорд: волна '+Save.data.bestWave;

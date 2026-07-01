@@ -15,7 +15,7 @@ function startGame(){
   Audio_.init(); Audio_.resume();
   buildWorld(); buildBg();
   particles.length=0; toasts.length=0; enemies.length=0; crumbs.length=0; floaters.length=0;
-  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; notes.length=0; noteCard.t=0; pickups.length=0;
+  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; pickups.length=0; clearSpeeches();
   game.crumbs=0; game.kills=0; game.time=0; game.gen++; game.bossDefeated=false;
   applyUpgrades();
   brad.reset();
@@ -59,7 +59,7 @@ function gameOver(){
 function victory(){
   if(game.state==='win') return;
   game.bossDefeated=true; game.state='win';
-  enemies.length=0; bossShots.length=0; iceWalls.length=0; notes.length=0;
+  enemies.length=0; bossShots.length=0; iceWalls.length=0; clearSpeeches();
   const haul=game.crumbs;
   bankCrumbs(); // победа — добыча сохраняется в банк
   Save.data.bossKills=(Save.data.bossKills||0)+1;
@@ -97,11 +97,10 @@ function update(dt){
   updateToasts(dt);
   updateCrumbs(dt);
   updatePickups(dt);
-  updateNotes(dt);
   updateParticles(dt);
   updateFloaters(dt);
   updateBanner(dt);
-  updateNoteCard(dt);
+  updateSpeeches(dt);
   Spawner.update(dt);
   Cam.update(dt, brad);
   Input._consume();
@@ -124,18 +123,18 @@ function render(t){
     drawBoss();
     drawCrumbs();
     drawPickups();
-    drawNotes();
     for(const e of enemies) drawEnemy(e);
     for(const tt of toasts) drawToast(tt);
     drawBossShots();
     brad.draw();
     drawParticles();
     drawFloaters();
+    drawSpeeches();
     ctx.restore();
   }
   ctx.restore();
   // HUD
-  if(inWorld){ drawHUD(); drawBanner(); drawNoteCard(); }
+  if(inWorld){ drawHUD(); drawBanner(); }
   // плавное затемнение (переходы зон / старт)
   if(Fade.a>0){ ctx.fillStyle='rgba(0,0,0,'+Fade.a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }
 }
