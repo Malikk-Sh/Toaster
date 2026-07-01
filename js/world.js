@@ -186,19 +186,29 @@ function drawBackground(t){
     ctx.globalAlpha=sa+Math.sin(t*2+s.tw)*0.3; ctx.fillStyle=starCol; ctx.fillRect(x,y,s.s,s.s); }
   ctx.restore(); ctx.globalAlpha=1;
 
-  // силуэты заднего плана
+  // силуэты заднего плана — ДАЛЬНИЙ слой (малый параллакс) даёт глубину
   if(Z.kind==='city'){
+    drawCityLayer(0.12, VH*0.58, '#0a0a1e', 150, 5);
     drawCityLayer(0.26, VH*0.66, '#0e1030', 210, 11);
     drawCityLayer(0.46, VH*0.72, '#0a0b1e', 150, 23);
   } else if(Z.kind==='sewer'){
+    drawPipesLayer(0.12, VH*0.52, '#05120d', 150, 3);
     drawPipesLayer(0.24, VH*0.60, '#06140f', 200, 7);
     drawPipesLayer(0.46, VH*0.72, '#040d0a', 150, 19);
   } else if(Z.kind==='factory'){
+    drawFactoryLayer(0.12, VH*0.54, '#140605', 165, 3);
     drawFactoryLayer(0.26, VH*0.62, '#1a0a08', 230, 9);
     drawFactoryLayer(0.46, VH*0.72, '#120605', 165, 21);
   } else {
+    drawJunkLayer(0.14, VH*0.54, '#241730', 90, 5); // дальние холмы
     for(const hl of Z.hills) drawJunkLayer(hl[0], VH*hl[1], hl[2], hl[3], hl[4]);
   }
+  // атмосферная вуаль у горизонта — «воздушная перспектива» (глубина)
+  ctx.save(); ctx.globalCompositeOperation='lighter';
+  const haze=ctx.createLinearGradient(0,VH*0.42,0,VH*0.72);
+  const hz = Z.kind==='sewer'?'rgba(120,200,160,':'rgba(255,150,80,';
+  haze.addColorStop(0,hz+'0)'); haze.addColorStop(0.6,hz+'0.05)'); haze.addColorStop(1,hz+'0)');
+  ctx.fillStyle=haze; ctx.fillRect(0,VH*0.42,VW,VH*0.30); ctx.restore();
 }
 // Подземка: силуэты труб с фланцами и круглыми устьями
 function drawPipesLayer(par, baseY, color, h, seed){
@@ -277,16 +287,21 @@ function drawFactoryLayer(par, baseY, color, h, seed){
   }
 }
 function drawJunkLayer(par, baseY, color, h, seed){
-  const ox=-Cam.x*par; ctx.fillStyle=color;
-  ctx.beginPath(); ctx.moveTo(-50,VH);
-  const step=120;
-  for(let x=-50; x<VW+200; x+=step){
-    const wx=x-ox;
-    const hh=h*(0.5+0.5*Math.abs(Math.sin((wx+seed*97)*0.01)));
-    ctx.lineTo(x, baseY-hh*0.5 + Math.sin((wx)*0.02+seed)*15);
-    ctx.lineTo(x+step*0.5, baseY-hh + Math.cos((wx)*0.015+seed)*10);
+  // Индексная прокрутка (как у city/pipes/factory) — горы ЕДУТ по горизонтали,
+  // а не морфятся: высота устойчива по индексу вершины.
+  const step=140;
+  const startIdx=Math.floor((Cam.x*par - step)/step);
+  const endIdx=Math.ceil((Cam.x*par + VW + step)/step);
+  ctx.fillStyle=color; ctx.beginPath();
+  ctx.moveTo(startIdx*step - Cam.x*par, VH);
+  for(let idx=startIdx; idx<=endIdx; idx++){
+    const sx=idx*step - Cam.x*par;
+    const valley=h*(0.18+0.22*Math.abs(Math.sin((idx*2+seed)*0.9)));
+    const peak  =h*(0.55+0.45*Math.abs(Math.sin((idx+seed*97)*1.3)));
+    ctx.lineTo(sx, baseY - valley);          // подошва
+    ctx.lineTo(sx+step*0.5, baseY - peak);   // вершина
   }
-  ctx.lineTo(VW+200,VH); ctx.closePath(); ctx.fill();
+  ctx.lineTo(endIdx*step - Cam.x*par, VH); ctx.closePath(); ctx.fill();
 }
 function drawCityLayer(par, baseY, color, h, seed){
   const step=86;
