@@ -98,7 +98,7 @@ function openGate(seg){ const gt=WORLD.gates[seg]; if(gt && gt.open<1) gt._openi
 function updateGates(dt){
   for(const gt of WORLD.gates){ if(gt._opening && gt.open<1){ gt.open=Math.min(1,gt.open+dt*1.4);
     if(gt.open>=1) gt._opening=false;
-    if(Math.random()<0.4) spawnParticle({x:gt.x+rand(-14,14),y:WORLD.groundY-rand(0,160),vx:rand(-30,30),vy:-rand(20,60),life:0.4,max:0.4,size:rand(2,4),color:pick(['#ffd27a','#caa15f']),add:true});
+    if(Math.random()<0.55) spawnParticle({x:gt.x+rand(-16,16),y:WORLD.groundY-rand(0,340),vx:rand(-30,30),vy:-rand(20,70),life:0.4,max:0.4,size:rand(2,4),color:pick(['#ffd27a','#caa15f']),add:true});
   } }
 }
 function drawGates(){
@@ -107,7 +107,8 @@ function drawGates(){
   const edge = Z.kind==='sewer'?'#5fe0b0' : Z.kind==='city'?'#6a7ad0' : Z.kind==='factory'?'#e8b53a' : '#caa15f';
   for(const gt of WORLD.gates){
     if(gt.open>=1) continue;
-    const gh=Math.min(220, VH*0.5), lift=gt.open*gh;
+    // ворота-стена почти во весь экран — сразу видно, что её не перепрыгнуть
+    const gh=Math.min(460, VH*0.92), lift=gt.open*gh;
     const x=gt.x-20, top=g-gh+lift;
     ctx.fillStyle=col; roundRect(x,top,40,gh-lift,4); ctx.fill();
     // ребра/створка

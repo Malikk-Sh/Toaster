@@ -97,17 +97,32 @@ function updateToasts(dt){
   }
 }
 function drawToast(t){
-  ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.rot);
   const s=t.size;
-  if(t.charged){ // ореол
-    ctx.globalCompositeOperation='lighter';
-    ctx.fillStyle='rgba(255,140,30,.5)'; ctx.beginPath(); ctx.arc(0,0,s*1.9,0,TAU); ctx.fill();
-    ctx.globalCompositeOperation='source-over';
-  }
-  // ломтик тоста
-  ctx.fillStyle='#b5722a'; roundRect(-s,-s,s*2,s*2,s*0.5); ctx.fill();
-  ctx.fillStyle='#e0a85a'; roundRect(-s*0.78,-s*0.78,s*1.56,s*1.56,s*0.4); ctx.fill();
-  ctx.fillStyle='#f4d29a'; roundRect(-s*0.5,-s*0.5,s*1.0,s*0.7,s*0.3); ctx.fill();
+  ctx.save(); ctx.translate(t.x,t.y);
+  // огненный ореол/пульс (сильнее у заряженного)
+  ctx.globalCompositeOperation='lighter';
+  ctx.fillStyle=t.charged?'rgba(255,120,20,.55)':'rgba(255,150,40,.32)';
+  ctx.beginPath(); ctx.arc(0,0,s*(t.charged?2.1:1.5)*(0.92+0.08*Math.sin(performance.now()/50)),0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  ctx.rotate(t.rot);
+  // силуэт ломтика хлеба (куполом сверху, скруглён снизу)
+  const bread=(k)=>{ ctx.beginPath();
+    ctx.moveTo(-s*k, s*0.85*k); ctx.lineTo(-s*k,-s*0.2*k);
+    ctx.quadraticCurveTo(-s*k,-s*0.98*k, 0,-s*0.98*k);
+    ctx.quadraticCurveTo(s*k,-s*0.98*k, s*k,-s*0.2*k);
+    ctx.lineTo(s*k, s*0.85*k);
+    ctx.quadraticCurveTo(0, s*1.05*k, -s*k, s*0.85*k);
+    ctx.closePath(); };
+  ctx.fillStyle=t.charged?'#8a4a18':'#a35f22'; bread(1);    ctx.fill(); // корочка
+  ctx.fillStyle=t.charged?'#d98a34':'#e6b160'; bread(0.8);  ctx.fill(); // мякиш
+  ctx.fillStyle=t.charged?'#f0c070':'#f6d79a'; bread(0.55); ctx.fill(); // светлая середина
+  // подпалины-решётка гриля
+  ctx.strokeStyle='rgba(120,70,20,.45)'; ctx.lineWidth=Math.max(1,s*0.13);
+  ctx.beginPath(); ctx.moveTo(-s*0.45,-s*0.15); ctx.lineTo(s*0.35,-s*0.3);
+  ctx.moveTo(-s*0.45,s*0.2); ctx.lineTo(s*0.35,s*0.05); ctx.stroke();
+  // раскалённое ядро у заряженного
+  if(t.charged){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,225,130,.75)';
+    ctx.beginPath(); ctx.arc(0,-s*0.1,s*0.32,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
   ctx.restore();
 }
 
