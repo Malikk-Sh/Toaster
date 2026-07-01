@@ -192,6 +192,30 @@ document.getElementById('btn-mute').addEventListener('click',e=>{
   Music._ramp();
 });
 
+// ------------------------------ Полный экран -------------------------
+function isFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function enterFullscreen(){
+  const el=document.documentElement;
+  const req=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen;
+  if(req){ const p=req.call(el); if(p&&p.catch) p.catch(()=>{}); }
+  // на мобильном заодно фиксируем горизонтальную ориентацию (если браузер разрешит)
+  try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }catch(_){}
+}
+function exitFullscreen(){
+  const exit=document.exitFullscreen||document.webkitExitFullscreen||document.webkitCancelFullScreen;
+  if(exit){ const p=exit.call(document); if(p&&p.catch) p.catch(()=>{}); }
+}
+function toggleFullscreen(){ if(isFullscreen()) exitFullscreen(); else enterFullscreen(); }
+function syncFsBtn(){ const b=document.getElementById('btn-fs'); if(b){ b.textContent=isFullscreen()?'🗕':'⛶'; b.title=isFullscreen()?'Свернуть':'Полный экран'; } }
+document.getElementById('btn-fs').addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); toggleFullscreen(); });
+document.addEventListener('fullscreenchange',()=>{ syncFsBtn(); setTimeout(resize,60); });
+document.addEventListener('webkitfullscreenchange',()=>{ syncFsBtn(); setTimeout(resize,60); });
+syncFsBtn();
+// если API полного экрана недоступен (напр. Safari на iPhone) — прячем кнопку
+if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen||document.documentElement.webkitRequestFullScreen)){
+  const b=document.getElementById('btn-fs'); if(b) b.style.display='none';
+}
+
 // прячем "загрузку" когда шрифты готовы (или по таймауту)
 function ready(){ document.getElementById('loading').style.display='none'; }
 if(document.fonts && document.fonts.ready){ document.fonts.ready.then(()=>setTimeout(ready,80)); }

@@ -80,7 +80,7 @@
   }
 
   /* ---------- HUD top-right buttons ---------- */
-  #topbar{position:absolute;top:0;right:0;z-index:20;display:flex;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 0 0;}
+  #topbar{position:absolute;top:0;right:0;z-index:40;display:flex;gap:8px;padding:max(10px,env(safe-area-inset-top)) 12px 0 0;}
   .iconbtn{
     width:42px;height:42px;border-radius:10px;border:1px solid rgba(255,255,255,.12);
     background:rgba(20,14,11,.55);color:#f0d8b8;font-size:19px;cursor:pointer;
