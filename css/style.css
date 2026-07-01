@@ -142,8 +142,10 @@
   .shop-quote{font-style:italic;color:#bcd; font-size:clamp(11px,3vw,13px);max-width:42ch;margin:2px auto 0;opacity:.9;}
   .shop-bank{display:inline-flex;align-items:center;gap:7px;background:rgba(36,26,21,.8);border:1px solid #6a532f;border-radius:20px;padding:7px 15px;margin:8px auto 6px;font-family:var(--display);font-size:18px;color:#f2c879;}
   .shop-bank .ic{width:14px;height:14px;border-radius:3px;background:#f2c879;display:inline-block;}
-  .shop-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1;min-height:0;overflow-y:auto;padding:4px 2px 2px;-webkit-overflow-scrolling:touch;}
-  .branch{display:flex;flex-direction:column;gap:8px;}
+  .shop-cols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;flex:1;min-height:0;
+    align-content:start;overflow-y:auto;padding:6px;-webkit-overflow-scrolling:touch;
+    background:rgba(12,9,7,.45);border:1px solid rgba(255,255,255,.06);border-radius:12px;}
+  .branch{display:flex;flex-direction:column;gap:8px;align-self:start;}
   .branch-h{position:sticky;top:0;z-index:1;font-family:var(--display);font-size:13px;letter-spacing:.5px;text-align:center;padding:7px 4px;border-radius:8px;background:rgba(20,14,11,.92);border:1px solid rgba(255,255,255,.08);}
   .node{position:relative;border-radius:10px;border:1px solid rgba(255,255,255,.1);background:rgba(28,20,15,.85);padding:9px 9px 9px;cursor:pointer;transition:transform .07s, border-color .1s, background .1s;}
   .node:active{transform:scale(.97);}
@@ -159,8 +161,21 @@
   .node.owned{border-color:rgba(120,220,120,.6);background:rgba(26,40,26,.7);cursor:default;}
   .node.owned .ct{color:#9fe06a;}
   .node .tick{position:absolute;top:7px;right:8px;color:#9fe06a;font-size:14px;}
-  .shop-foot{display:flex;gap:10px;justify-content:center;align-items:center;padding-top:10px;flex-wrap:wrap;}
+  .shop-foot{display:flex;gap:10px;justify-content:center;align-items:center;padding-top:8px;flex-wrap:wrap;}
   .shop-hint{font-size:11px;color:#8fa0b0;text-align:center;width:100%;margin-bottom:2px;}
+  /* компактная кнопка в магазине (у .btn базовый margin-top:26px — убираем) */
+  #screen-shop .btn{margin-top:0;padding:11px 34px;font-size:clamp(16px,4.5vw,20px);}
+  /* на низких ландшафтных экранах ужимаем «обвязку», чтобы улучшения занимали больше высоты */
+  @media (max-height:470px){
+    .shop-wrap{padding:max(8px,env(safe-area-inset-top)) 12px 10px;}
+    .shop-blender{font-size:26px;}
+    .shop-title{font-size:clamp(17px,4.5vw,22px);}
+    .shop-quote{display:none;}
+    .shop-bank{margin:4px auto 3px;padding:4px 12px;font-size:15px;}
+    .shop-hint{display:none;}
+    #screen-shop .btn{padding:8px 28px;font-size:16px;}
+    .shop-foot{padding-top:5px;}
+  }
 
   /* ---------- Поверни устройство (ландшафт) ---------- */
   #screen-rotate{z-index:60;background:radial-gradient(120% 100% at 50% 35%, rgba(232,133,43,.14), rgba(8,5,4,.97) 62%, rgba(8,5,4,.99));}
