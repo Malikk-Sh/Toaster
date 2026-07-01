@@ -1,18 +1,20 @@
 "use strict";
 const SHOP_EVERY = 3; // привал у Блендера каждые N волн
 
-// Масштаб силы врага: NG+ × номер зоны × номер волны
+// Масштаб живучести/силы врага: изначально ×1.5, с прогрессом (зона×волна) до ×4.
+// progress 0→1 по ходу игры; сверху ещё множитель Новой Игры+.
 function enemyScale(){
-  return diffMul() * (1 + (game.zone||0)*0.12 + Math.max(0,(Spawner.wave-1))*0.05);
+  const progress = clamp(((game.zone||0)*10 + Math.max(0,Spawner.wave)) / 40, 0, 1);
+  return clamp(1.5 + progress*2.5, 1.5, 4) * diffMul();
 }
 
 // Состав волн по зонам: [тип, вес, минимальная_волна]
 // [тип, вес, мин.волна] — тяжёлые враги вводятся постепенно по ходу зоны
 const ZONE_POOLS={
-  dump:    [['vac',3,1],['fan',3,1],['nuke',2.2,3],['drill',1.8,5],['mine',1.6,7]],
-  sewer:   [['kettle',2.4,1],['vac',2,1],['fan',1.6,2],['mixer',2,3],['shock',1.8,5],['mine',1.6,7]],
-  city:    [['fan',1.8,1],['drill',2.2,2],['nuke',2,3],['shock',2,4],['vac',1.4,1],['mixer',1.8,6]],
-  factory: [['mixer',2,1],['shock',2,2],['nuke',1.8,3],['iron',2.2,4],['mine',2,6],['kettle',1.6,7]],
+  dump:    [['vac',3,1],['fan',3,1],['nuke',2.2,3],['juicer',1.8,4],['drill',1.8,5],['mine',1.6,7]],
+  sewer:   [['kettle',2.4,1],['vac',2,1],['fan',1.6,2],['mixer',2,3],['juicer',1.8,4],['shock',1.8,5],['mine',1.6,7]],
+  city:    [['fan',1.8,1],['drill',2.2,2],['nuke',2,3],['juicer',2,3],['shock',2,4],['vac',1.4,1],['mixer',1.8,6]],
+  factory: [['mixer',2,1],['shock',2,2],['nuke',1.8,3],['juicer',2,3],['iron',2.2,4],['mine',2,6],['kettle',1.6,7]],
 };
 const FLYING=new Set(['fan','shock','drone']);
 

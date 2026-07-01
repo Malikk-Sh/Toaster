@@ -19,7 +19,7 @@ function startGame(){
   game.crumbs=0; game.kills=0; game.time=0; game.gen++; game.bossDefeated=false;
   applyUpgrades();
   brad.reset();
-  Cam.x=0; Cam.y=0; Cam.shake=0;
+  Cam.x=0; Cam.y=0; Cam.lookX=0; Cam.shake=0;
   Spawner.start();
   hideAll(); game.state='playing';
   fadeIn();

@@ -31,16 +31,27 @@ window.addEventListener('orientationchange',()=>setTimeout(resize,150));
 resize();
 
 // ------------------------------ Звук (синтез) ------------------------
-const Cam={x:0,y:0, shake:0, shakeT:0,
+const Cam={x:0,y:0, lookX:0, shake:0, shakeT:0,
   addShake(a){ this.shake=Math.max(this.shake,a); },
   update(dt,target){
-    // целимся чуть впереди по направлению взгляда (шире на широких экранах)
-    const look = target.facing*Math.min(230, VW*0.16);
+    // Плавный вынос по направлению взгляда: lookX МЕДЛЕННО догоняет цель, поэтому
+    // при развороте/уворотах камера не дёргается. Вынос уменьшен, чтобы враг/босс
+    // за спиной оставался в кадре.
+    const lead = target.facing*Math.min(130, VW*0.10);
+    this.lookX = lerp(this.lookX, lead, 1-Math.pow(0.2,dt));
     const arx = (typeof accessRightX==='function')? accessRightX() : WORLD.w;
     const rightBound = Math.max(0, Math.min(WORLD.w-VW, arx - VW*0.12));
-    const tx = clamp(target.x+look - VW/2, 0, rightBound);
+    // Горизонтальный «мёртвый зон» вокруг игрока: пока цель внутри него, камера не
+    // едет по X — резкая смена направления при уклонении больше не трясёт кадр.
+    const desired = target.x + this.lookX;
+    const camCenter = this.x + VW/2;
+    const dz = Math.min(90, VW*0.10);
+    let tx = this.x;
+    if(desired > camCenter + dz) tx += desired - (camCenter+dz);
+    else if(desired < camCenter - dz) tx += desired - (camCenter-dz);
+    tx = clamp(tx, 0, rightBound);
     const ty = clamp(target.y - VH*0.62, WORLD.groundY-VH+40, 0);
-    this.x = lerp(this.x, tx, 1-Math.pow(0.001,dt));
+    this.x = lerp(this.x, tx, 1-Math.pow(0.0025,dt));
     this.y = lerp(this.y, isFinite(ty)?ty:0, 1-Math.pow(0.002,dt));
     this.shake = Math.max(0, this.shake - dt*this.shake*6 - dt*8);
     this.shakeT += dt*60;

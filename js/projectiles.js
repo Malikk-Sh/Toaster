@@ -138,6 +138,13 @@ function spawnGlob(x,y,tx,ty,opt={}){
   bossShots.push({x,y,vx,vy,g:G,size:opt.size||11,dmg:opt.dmg||12,kind:'glob',chill:false,
     life:3.0,rot:rand(0,TAU),spin:rand(-4,4),trail:0});
 }
+// кислотный брызг Соковыжималки — по дуге, летит веером; поджаристо-едкий
+function spawnAcid(x,y,ang,opt={}){
+  const sp=opt.speed||430;
+  bossShots.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,g:opt.g!=null?opt.g:640,
+    size:opt.size||9,dmg:opt.dmg||10,kind:'acid',chill:false,
+    life:opt.life||2.2,rot:rand(0,TAU),spin:rand(-6,6),trail:0});
+}
 // электро-болт зарядки — быстрый, почти прямой, короткий стан
 function spawnBolt(x,y,ang,opt={}){
   const sp=opt.speed||640;
@@ -157,6 +164,7 @@ function updateBossShots(dt){
     if(s.trail<=0){ s.trail=0.04;
       const tc = s.kind==='bullet'? ['#ffd27a','#ff8a1e','#caa15f']
         : s.kind==='glob'? ['#ffae42','#ff6a00','#ffd23f']
+        : s.kind==='acid'? ['#b6ff5a','#8ada3a','#e0ff9a']
         : s.kind==='bolt'? ['#fff7a0','#9fd0ff','#fff']
         : s.kind==='wave'? ['#caa15f','#ffd27a','#8a6a3a']
         : ['#bfe8ff','#8fd2ff','#dff4ff'];
@@ -183,6 +191,8 @@ function shotShatter(s){
     burst(s.x,s.y,5,{colors:['#ffd27a','#caa15f','#fff'],smax:160,grav:300,szmax:3,lmax:0.3}); }
   else if(s.kind==='glob'){ Audio_.noise(0.06,0.08,2200);
     burst(s.x,s.y,8,{colors:['#ffae42','#ff6a00','#ffd23f'],smax:180,grav:120,szmax:5,lmax:0.4}); }
+  else if(s.kind==='acid'){ Audio_.noise(0.06,0.08,1700);
+    burst(s.x,s.y,8,{colors:['#b6ff5a','#8ada3a','#e0ff9a'],smax:180,grav:220,szmax:5,lmax:0.45}); }
   else if(s.kind==='bolt'){ Audio_.tone(rand(900,1300),0.05,'square',0.07,400);
     burst(s.x,s.y,6,{kind:'spark',colors:['#fff7a0','#9fd0ff','#fff'],smax:220,szmax:3,lmax:0.25,grav:60}); }
   else if(s.kind==='wave'){ burst(s.x,s.y,5,{colors:['#caa15f','#8a6a3a'],smax:140,grav:200,szmax:3,lmax:0.3}); }
@@ -207,6 +217,12 @@ function drawBossShots(){
       ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
       ctx.fillStyle='#ff8a1e'; ctx.beginPath(); ctx.arc(0,0,z,0,TAU); ctx.fill();
       ctx.fillStyle='#ffd23f'; ctx.beginPath(); ctx.arc(-z*0.3,-z*0.3,z*0.45,0,TAU); ctx.fill();
+    } else if(s.kind==='acid'){
+      // едкая капля-брызг
+      ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(160,240,80,.5)';
+      ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#7fbf30'; ctx.beginPath(); ctx.arc(0,0,z,0,TAU); ctx.fill();
+      ctx.fillStyle='#c9ff7a'; ctx.beginPath(); ctx.arc(-z*0.3,-z*0.3,z*0.45,0,TAU); ctx.fill();
     } else if(s.kind==='bolt'){
       // электро-болт (ромб + искра)
       ctx.globalCompositeOperation='lighter';

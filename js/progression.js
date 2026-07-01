@@ -1,19 +1,14 @@
 "use strict";
+// Прогресс живёт только в памяти сессии: без localStorage/window.storage.
+// Перезагрузка страницы полностью сбрасывает банк/апгрейды/NG+ — можно
+// проходить заново с чистого листа.
 const Save={
   data:{ bank:0, owned:{}, runs:0, bestWave:0, bossKills:0 },
-  _key:'tost_pravednika_save_v1', _loaded:false,
-  async load(){
-    try{ if(window.storage && window.storage.get){ const r=await window.storage.get(this._key); if(r&&r.value) this.data=Object.assign(this.data,JSON.parse(r.value)); this._loaded=true; return; } }catch(e){}
-    try{ const s=localStorage.getItem(this._key); if(s) this.data=Object.assign(this.data,JSON.parse(s)); }catch(e){}
-    this._loaded=true;
-  },
-  persist(){
-    const json=JSON.stringify(this.data);
-    try{ if(window.storage && window.storage.set) window.storage.set(this._key,json); }catch(e){}
-    try{ localStorage.setItem(this._key,json); }catch(e){}
-  },
+  _loaded:false,
+  async load(){ this._loaded=true; },
+  persist(){ /* no-op: прогресс не сохраняется между перезагрузками */ },
   owns(id){ return !!this.data.owned[id]; },
-  buy(id,cost){ if(this.owns(id)||this.data.bank<cost) return false; this.data.bank-=cost; this.data.owned[id]=true; this.persist(); return true; },
+  buy(id,cost){ if(this.owns(id)||this.data.bank<cost) return false; this.data.bank-=cost; this.data.owned[id]=true; return true; },
 };
 
 // ------------------------------ Дерево апгрейдов ---------------------
