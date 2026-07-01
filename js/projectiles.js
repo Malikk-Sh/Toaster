@@ -14,7 +14,7 @@ function fireToast(x,y,target,opt={}){
   if(opt.angle!=null){ const sp=opt.speed||620; vx=Math.cos(opt.angle)*sp; vy=Math.sin(opt.angle)*sp; }
   toasts.push({x,y,vx,vy,size:opt.size||10,dmg:opt.dmg||10,
     charged:!!opt.charged,aoe:opt.aoe||0,life:opt.life||2.2,rot:rand(0,TAU),
-    spin:rand(-10,10)*sign(vx),hit:false,trail:0});
+    spin:rand(-10,10)*sign(vx),hit:false,trail:0,pierce:!!opt.pierce,hitSet:null});
 }
 function explodeToast(t){
   const r = t.charged? (38+t.aoe) : 0;
@@ -57,13 +57,16 @@ function updateToasts(dt){
     let struck=null;
     for(const e of enemies){
       if(e.dead) continue;
+      if(t.hitSet && t.hitSet.indexOf(e)>=0) continue; // не бьём повторно при пробитии
       if(Math.abs(t.x-e.x)<e.w*0.55+t.size && Math.abs(t.y-(e.y-e.h*0.4))<e.h*0.55+t.size){ struck=e; break; }
     }
     if(struck){
       damageEnemy(struck, t.dmg, t.x, t.y, t.charged);
       struck.burn=Math.max(struck.burn, (t.charged?2.5:1.4)*brad.burnMul);
-      explodeToast(t);
       if(!t.charged){ Audio_.hit(); burst(t.x,t.y,7,{colors:['#ffd27a','#ff8a1e'],smax:180,szmax:4,lmax:0.4}); }
+      // пробивающий тост проходит сквозь первого врага
+      if(t.pierce && !t.charged){ (t.hitSet||(t.hitSet=[])).push(struck); t.pierce=false; continue; }
+      explodeToast(t);
       toasts.splice(i,1); continue;
     }
     // попадание в босса
@@ -94,17 +97,32 @@ function updateToasts(dt){
   }
 }
 function drawToast(t){
-  ctx.save(); ctx.translate(t.x,t.y); ctx.rotate(t.rot);
   const s=t.size;
-  if(t.charged){ // ореол
-    ctx.globalCompositeOperation='lighter';
-    ctx.fillStyle='rgba(255,140,30,.5)'; ctx.beginPath(); ctx.arc(0,0,s*1.9,0,TAU); ctx.fill();
-    ctx.globalCompositeOperation='source-over';
-  }
-  // ломтик тоста
-  ctx.fillStyle='#b5722a'; roundRect(-s,-s,s*2,s*2,s*0.5); ctx.fill();
-  ctx.fillStyle='#e0a85a'; roundRect(-s*0.78,-s*0.78,s*1.56,s*1.56,s*0.4); ctx.fill();
-  ctx.fillStyle='#f4d29a'; roundRect(-s*0.5,-s*0.5,s*1.0,s*0.7,s*0.3); ctx.fill();
+  ctx.save(); ctx.translate(t.x,t.y);
+  // огненный ореол/пульс (сильнее у заряженного)
+  ctx.globalCompositeOperation='lighter';
+  ctx.fillStyle=t.charged?'rgba(255,120,20,.55)':'rgba(255,150,40,.32)';
+  ctx.beginPath(); ctx.arc(0,0,s*(t.charged?2.1:1.5)*(0.92+0.08*Math.sin(performance.now()/50)),0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='source-over';
+  ctx.rotate(t.rot);
+  // силуэт ломтика хлеба (куполом сверху, скруглён снизу)
+  const bread=(k)=>{ ctx.beginPath();
+    ctx.moveTo(-s*k, s*0.85*k); ctx.lineTo(-s*k,-s*0.2*k);
+    ctx.quadraticCurveTo(-s*k,-s*0.98*k, 0,-s*0.98*k);
+    ctx.quadraticCurveTo(s*k,-s*0.98*k, s*k,-s*0.2*k);
+    ctx.lineTo(s*k, s*0.85*k);
+    ctx.quadraticCurveTo(0, s*1.05*k, -s*k, s*0.85*k);
+    ctx.closePath(); };
+  ctx.fillStyle=t.charged?'#8a4a18':'#a35f22'; bread(1);    ctx.fill(); // корочка
+  ctx.fillStyle=t.charged?'#d98a34':'#e6b160'; bread(0.8);  ctx.fill(); // мякиш
+  ctx.fillStyle=t.charged?'#f0c070':'#f6d79a'; bread(0.55); ctx.fill(); // светлая середина
+  // подпалины-решётка гриля
+  ctx.strokeStyle='rgba(120,70,20,.45)'; ctx.lineWidth=Math.max(1,s*0.13);
+  ctx.beginPath(); ctx.moveTo(-s*0.45,-s*0.15); ctx.lineTo(s*0.35,-s*0.3);
+  ctx.moveTo(-s*0.45,s*0.2); ctx.lineTo(s*0.35,s*0.05); ctx.stroke();
+  // раскалённое ядро у заряженного
+  if(t.charged){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,225,130,.75)';
+    ctx.beginPath(); ctx.arc(0,-s*0.1,s*0.32,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; }
   ctx.restore();
 }
 
@@ -135,6 +153,13 @@ function spawnGlob(x,y,tx,ty,opt={}){
   bossShots.push({x,y,vx,vy,g:G,size:opt.size||11,dmg:opt.dmg||12,kind:'glob',chill:false,
     life:3.0,rot:rand(0,TAU),spin:rand(-4,4),trail:0});
 }
+// кислотный брызг Соковыжималки — по дуге, летит веером; поджаристо-едкий
+function spawnAcid(x,y,ang,opt={}){
+  const sp=opt.speed||430;
+  bossShots.push({x,y,vx:Math.cos(ang)*sp,vy:Math.sin(ang)*sp,g:opt.g!=null?opt.g:640,
+    size:opt.size||9,dmg:opt.dmg||10,kind:'acid',chill:false,
+    life:opt.life||2.2,rot:rand(0,TAU),spin:rand(-6,6),trail:0});
+}
 // электро-болт зарядки — быстрый, почти прямой, короткий стан
 function spawnBolt(x,y,ang,opt={}){
   const sp=opt.speed||640;
@@ -154,6 +179,7 @@ function updateBossShots(dt){
     if(s.trail<=0){ s.trail=0.04;
       const tc = s.kind==='bullet'? ['#ffd27a','#ff8a1e','#caa15f']
         : s.kind==='glob'? ['#ffae42','#ff6a00','#ffd23f']
+        : s.kind==='acid'? ['#b6ff5a','#8ada3a','#e0ff9a']
         : s.kind==='bolt'? ['#fff7a0','#9fd0ff','#fff']
         : s.kind==='wave'? ['#caa15f','#ffd27a','#8a6a3a']
         : ['#bfe8ff','#8fd2ff','#dff4ff'];
@@ -180,6 +206,8 @@ function shotShatter(s){
     burst(s.x,s.y,5,{colors:['#ffd27a','#caa15f','#fff'],smax:160,grav:300,szmax:3,lmax:0.3}); }
   else if(s.kind==='glob'){ Audio_.noise(0.06,0.08,2200);
     burst(s.x,s.y,8,{colors:['#ffae42','#ff6a00','#ffd23f'],smax:180,grav:120,szmax:5,lmax:0.4}); }
+  else if(s.kind==='acid'){ Audio_.noise(0.06,0.08,1700);
+    burst(s.x,s.y,8,{colors:['#b6ff5a','#8ada3a','#e0ff9a'],smax:180,grav:220,szmax:5,lmax:0.45}); }
   else if(s.kind==='bolt'){ Audio_.tone(rand(900,1300),0.05,'square',0.07,400);
     burst(s.x,s.y,6,{kind:'spark',colors:['#fff7a0','#9fd0ff','#fff'],smax:220,szmax:3,lmax:0.25,grav:60}); }
   else if(s.kind==='wave'){ burst(s.x,s.y,5,{colors:['#caa15f','#8a6a3a'],smax:140,grav:200,szmax:3,lmax:0.3}); }
@@ -204,6 +232,12 @@ function drawBossShots(){
       ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
       ctx.fillStyle='#ff8a1e'; ctx.beginPath(); ctx.arc(0,0,z,0,TAU); ctx.fill();
       ctx.fillStyle='#ffd23f'; ctx.beginPath(); ctx.arc(-z*0.3,-z*0.3,z*0.45,0,TAU); ctx.fill();
+    } else if(s.kind==='acid'){
+      // едкая капля-брызг
+      ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(160,240,80,.5)';
+      ctx.beginPath(); ctx.arc(0,0,z*1.7,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+      ctx.fillStyle='#7fbf30'; ctx.beginPath(); ctx.arc(0,0,z,0,TAU); ctx.fill();
+      ctx.fillStyle='#c9ff7a'; ctx.beginPath(); ctx.arc(-z*0.3,-z*0.3,z*0.45,0,TAU); ctx.fill();
     } else if(s.kind==='bolt'){
       // электро-болт (ромб + искра)
       ctx.globalCompositeOperation='lighter';
@@ -304,7 +338,7 @@ function updateCrumbs(dt){
     if(c.y>WORLD.groundY-4){ c.y=WORLD.groundY-4; c.vy*=-0.3; c.vx*=0.7; }
     // подбор
     if(brad.alive && d2 < (brad.w*0.6)**2){
-      game.crumbs++; brad.gainUlt(1.4); Audio_.pickup();
+      game.crumbs++; Audio_.pickup();
       spawnParticle({x:c.x,y:c.y,vx:0,vy:-40,life:0.3,max:0.3,size:6,color:'#ffd27a',add:true});
       crumbs.splice(i,1);
     }
@@ -366,81 +400,6 @@ function drawPickups(){
   }
 }
 
-// ------------------------------ Записки (лор) ------------------------
-const NOTES=[
-  {id:'n1', t:'Утиль-квитанция №404: «Тостер „Колос“, 1987 г.в. Состояние: рабочее. Причина списания: устарел морально.»'},
-  {id:'n2', t:'Листовка TechFresh: «Обнови кухню — обнови себя! Старое не чинят. Старое заменяют.»'},
-  {id:'n3', t:'Записка Фанни: «Брэд, если читаешь это — значит дошёл. Не верь рекламе. Грейся изнутри.»'},
-  {id:'n4', t:'Инструкция Блендера (на салфетке): «КРОШКА = ТОПЛИВО. Тратить с умом. Жжж. О чём я? А, апгрейды!»'},
-  {id:'n5', t:'Служебный лог: «Холодильник „Полюс“ перепрошит. Лоялен. Морозит несогласных.»'},
-  {id:'n6', t:'Граффити на свалке: «МЫ НЕ МУСОР». Краска ещё свежая.'},
-  {id:'n7', t:'Чек из магазина: гарантия истекла за день до поломки. Совпадение? В TechFresh не верят в совпадения.'},
-  {id:'n8', t:'Городская сводка: «Roomba-патруль 9000 переведён в режим зачистки. Беженцев-приборов — изолировать.»'},
-];
-const notes=[];
-function notesFoundCount(){ return Object.keys(Save.data.notes||{}).length; }
-function maybeDropNote(x,y){
-  // редкий шанс выронить записку (не чаще 1 непрочитанной за раз на экране)
-  if(notes.length>0) return;
-  const undiscovered=NOTES.filter(n=>!(Save.data.notes&&Save.data.notes[n.id]));
-  if(undiscovered.length===0) return;
-  if(Math.random()<0.14){
-    const n=pick(undiscovered);
-    notes.push({x,y:Math.min(y,WORLD.groundY-30),vy:-120,vx:rand(-40,40),id:n.id,text:n.t,anim:rand(0,TAU),life:18});
-  }
-}
-function updateNotes(dt){
-  for(let i=notes.length-1;i>=0;i--){
-    const p=notes[i]; p.anim+=dt*3; p.life-=dt;
-    if(p.life<=0){ notes.splice(i,1); continue; }
-    const d2=dist2(p.x,p.y,brad.x,brad.y-brad.h*0.4);
-    if(brad.alive && d2<150*150){ const dx=brad.x-p.x, dy=(brad.y-brad.h*0.4)-p.y, d=Math.sqrt(d2)||1;
-      const pull=300*(1-d/150)+90; p.vx+=dx/d*pull*dt; p.vy+=dy/d*pull*dt; }
-    else p.vy+=500*dt;
-    p.x+=p.vx*dt; p.y+=p.vy*dt; p.vx*=(1-dt*0.9);
-    if(p.y>WORLD.groundY-12){ p.y=WORLD.groundY-12; p.vy*=-0.3; p.vx*=0.7; }
-    if(brad.alive && d2<(brad.w*0.7)**2){
-      Save.data.notes=Save.data.notes||{}; Save.data.notes[p.id]=true; Save.persist();
-      Audio_.tone(740,0.1,'sine',0.12,1100); Audio_.tone(988,0.14,'sine',0.1,1480,0.06);
-      showNote(p.text);
-      burst(p.x,p.y,12,{colors:['#ffe9b0','#fff','#caa15f'],smax:160,szmax:4,lmax:0.5});
-      notes.splice(i,1);
-    }
-  }
-}
-function drawNotes(){
-  for(const p of notes){
-    ctx.save(); ctx.translate(p.x, p.y+Math.sin(p.anim)*3); ctx.rotate(Math.sin(p.anim*0.7)*0.1);
-    ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,230,160,.4)';
-    ctx.beginPath(); ctx.arc(0,0,16,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
-    // листок
-    ctx.fillStyle='#f3ead0'; roundRect(-9,-12,18,24,2); ctx.fill();
-    ctx.fillStyle='#b9a884'; for(let k=0;k<4;k++) ctx.fillRect(-6,-8+k*5,12,1.5);
-    ctx.fillStyle='#caa15f'; ctx.font="900 9px 'Russo One',sans-serif"; ctx.textAlign='center'; ctx.fillText('?', 0, 11);
-    ctx.restore();
-  }
-  ctx.textAlign='left';
-}
-// карточка записки (экранное пространство)
-const noteCard={text:'',t:0,max:0};
-function showNote(text){ noteCard.text=text; noteCard.t=noteCard.max=5.0; }
-function updateNoteCard(dt){ if(noteCard.t>0) noteCard.t-=dt; }
-function drawNoteCard(){
-  if(noteCard.t<=0) return;
-  const p=noteCard.t/noteCard.max;
-  const a=p>0.85?(1-(p-0.85)/0.15):p<0.2?p/0.2:1;
-  ctx.save(); ctx.globalAlpha=a;
-  const w=Math.min(VW*0.86,520), x=VW/2-w/2, y=VH*0.7;
-  // обёртка
-  ctx.fillStyle='rgba(20,14,11,.92)'; roundRect(x,y,w,86,12); ctx.fill();
-  ctx.strokeStyle='rgba(255,210,122,.5)'; ctx.lineWidth=1.5; roundRect(x,y,w,86,12); ctx.stroke();
-  ctx.fillStyle='#ffd27a'; ctx.font="900 12px 'Russo One',sans-serif"; ctx.textAlign='left';
-  ctx.fillText('📄 ЗАПИСКА НАЙДЕНА', x+14, y+20);
-  // текст с переносом
-  ctx.fillStyle='#e8dcc4'; ctx.font="13px 'Rubik',sans-serif";
-  wrapText(noteCard.text, x+14, y+38, w-28, 16);
-  ctx.restore(); ctx.globalAlpha=1; ctx.textAlign='left';
-}
 function wrapText(text,x,y,maxW,lh){
   const words=text.split(' '); let line='', yy=y;
   for(const wd of words){ const test=line?line+' '+wd:wd;

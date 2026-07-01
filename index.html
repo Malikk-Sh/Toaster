@@ -14,6 +14,7 @@
 
 <!-- top-right controls -->
 <div id="topbar">
+  <button class="iconbtn" id="btn-fs" title="Полный экран">⛶</button>
   <button class="iconbtn" id="btn-mute" title="Звук">🔊</button>
   <button class="iconbtn" id="btn-pause" title="Пауза" style="display:none">⏸</button>
 </div>
@@ -25,14 +26,14 @@
     <div class="tbtn move" data-act="right">▶</div>
   </div>
   <div class="pad" id="pad-right">
-    <div class="tbtn big" data-act="charge" id="btn-charge">ЖАР<span class="sub">держать</span><div class="charge-ring" id="chargeRing"></div></div>
+    <div class="tbtn big" data-act="charge" id="btn-charge">ЖАР<span class="sub">тап/держать</span><div class="charge-ring" id="chargeRing"></div></div>
     <div class="tbtn act" data-act="jump">ПРЫГ</div>
-    <div class="tbtn act" data-act="dash">РЫВОК</div>
-    <div class="tbtn act ult notready" data-act="ult" id="btn-ult">УЛЬТА</div>
+    <div class="tbtn act" data-act="dash" id="btn-dash">РЫВОК<div class="dash-fill" id="dashFill"></div><div class="dash-count" id="dashCount"></div></div>
   </div>
 </div>
 
-<div id="kbchip"><b>A/D</b> ходьба · <b>W</b> прыжок · <b>Shift</b> рывок · <b>держать J</b> заряд · <b>Q</b> ульта</div>
+<div id="kbchip"><b>A/D</b> ходьба · <b>W</b> прыжок · <b>Shift</b> рывок · <b>J/ЛКМ</b> выстрел (тап/зажать)</div>
+<button id="btn-skip-cut" class="hidden" style="position:fixed;right:18px;bottom:18px;z-index:60;padding:10px 18px;border-radius:12px;border:1px solid rgba(255,255,255,.25);background:rgba(20,14,10,.6);color:#f4e6c8;font:700 15px 'Rubik',sans-serif;cursor:pointer;backdrop-filter:blur(4px);">Пропустить ⏭</button>
 
 <!-- START -->
 <div class="overlay" id="screen-start">
@@ -122,6 +123,8 @@
 <script src="js/spawner.js"></script>
 <script src="js/progression.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/cutscene.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

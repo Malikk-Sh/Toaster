@@ -12,19 +12,73 @@ const boss={
   iceCD:0, wallCD:0, summonCD:0, lungeCD:0, hop:0,
   laser:{state:'off', t:0, y:0},
   // доп. скретч-поля для других боссов
-  atkCD:0, atkCD2:0, spin:0, pressY:0, lungeDir:1,
+  atkCD:0, atkCD2:0, hazCD:0, spin:0, pressY:0, lungeDir:1, sweep:null,
   reset(){
     this.active=false; this.phase=1; this.state='idle'; this.t=0; this.vx=0;
     this.facing=-1; this.flash=0; this.burn=0; this.burnTick=0; this.doorOpen=0;
     this.intro=0; this.dieT=0; this.iceCD=1.2; this.wallCD=4; this.summonCD=1.2;
     this.lungeCD=1.4; this.hop=0; this.laser.state='off'; this.laser.t=0;
-    this.atkCD=0; this.atkCD2=0; this.spin=0; this.pressY=0; this.press=null;
+    this.atkCD=0; this.atkCD2=0; this.hazCD=2; this.spin=0; this.pressY=0;
+    this.press=null; this.presses=[]; this.sweep=null;
     this.bobp=0; this.t2=0; this.t3=0; this.fire=0;
+    clearHazards();
   },
   def(){ return BOSS_KINDS[this.kind] || BOSS_KINDS.fridge; },
   spawn(kind){ this.kind=kind||'fridge'; this.reset(); this.active=true; this.def().spawn(this); },
   weakActive(){ return this.phase===2 && this.doorOpen>0.6; },
 };
+
+// ------------------------------ Хазарды на полу ----------------------
+// Наземные эффекты боссов: морозные пятна (чилл), скользкие лужи (слик),
+// телеграф-падение сосулек.
+const hazards=[];
+function clearHazards(){ hazards.length=0; }
+function spawnFrost(x,w){ hazards.push({kind:'frost',x,w:w||84,t:5,max:5}); }
+function spawnSlick(x,w){ hazards.push({kind:'slick',x,w:w||96,t:6,max:6}); }
+function dropIcicle(x){ hazards.push({kind:'icewarn',x,w:34,t:0.75,max:0.75}); }
+function updateHazards(dt){
+  brad.slick=false;
+  for(let i=hazards.length-1;i>=0;i--){
+    const hz=hazards[i]; hz.t-=dt;
+    if(hz.kind==='icewarn'){
+      if(hz.t<=0){ // роняем сосульку сверху
+        spawnIceCube(hz.x, WORLD.groundY-360, hz.x, WORLD.groundY, {dmg:16,size:14,angle:Math.PI/2,speed:60});
+        Audio_.tone(500,0.12,'triangle',0.1,240);
+        hazards.splice(i,1); continue; }
+    } else {
+      if(hz.t<=0){ hazards.splice(i,1); continue; }
+      if(brad.alive && brad.onGround && Math.abs(brad.x-hz.x)<hz.w*0.5){
+        if(hz.kind==='frost'){ brad.slow=Math.max(brad.slow,0.35);
+          if(Math.random()<0.15) spawnParticle({x:brad.x+rand(-10,10),y:brad.y+brad.h*0.4,vx:rand(-20,20),vy:-rand(10,40),life:0.4,max:0.4,size:rand(2,4),color:pick(['#bfe8ff','#dff4ff']),add:true}); }
+        else if(hz.kind==='slick'){ brad.slick=true; }
+      }
+    }
+  }
+}
+function drawHazards(){
+  const gy=WORLD.groundY, now=performance.now();
+  for(const hz of hazards){
+    if(hz.kind==='frost'){ const a=clamp(hz.t/hz.max,0,1);
+      ctx.save(); ctx.globalAlpha=0.35*a+0.25; ctx.fillStyle='rgba(150,220,255,.5)';
+      ctx.beginPath(); ctx.ellipse(hz.x,gy-2,hz.w*0.5,7,0,0,TAU); ctx.fill();
+      ctx.fillStyle='rgba(220,245,255,.7)'; for(let k=-2;k<=2;k++) ctx.fillRect(hz.x+k*hz.w*0.16-1.5, gy-9-((k+2)%3)*3, 3, 9);
+      ctx.restore();
+    } else if(hz.kind==='slick'){ const a=clamp(hz.t/hz.max,0,1);
+      ctx.save(); ctx.globalAlpha=0.3*a+0.15; ctx.fillStyle='rgba(200,235,255,.45)';
+      ctx.beginPath(); ctx.ellipse(hz.x,gy-1,hz.w*0.5,6,0,0,TAU); ctx.fill();
+      ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,255,255,.5)';
+      for(let k=0;k<4;k++) { ctx.beginPath(); ctx.arc(hz.x+Math.sin(now/500+k)*hz.w*0.3, gy-4-Math.abs(Math.sin(now/400+k))*6, 2,0,TAU); ctx.fill(); }
+      ctx.restore();
+    } else if(hz.kind==='icewarn'){ const p=1-hz.t/hz.max;
+      ctx.save(); ctx.globalAlpha=0.4+0.4*Math.abs(Math.sin(now/60));
+      ctx.strokeStyle='#bfe8ff'; ctx.lineWidth=2; ctx.setLineDash([5,4]);
+      ctx.beginPath(); ctx.moveTo(hz.x, gy-260*p); ctx.lineTo(hz.x, gy); ctx.stroke(); ctx.setLineDash([]);
+      ctx.fillStyle='rgba(150,210,255,.5)'; ctx.beginPath(); ctx.ellipse(hz.x,gy-2,16,5,0,0,TAU); ctx.fill();
+      ctx.restore();
+    }
+  }
+  ctx.globalAlpha=1;
+}
 
 // запуск босса заданного вида
 function startBossKind(kind){
@@ -32,6 +86,8 @@ function startBossKind(kind){
   boss.spawn(kind);
   Music.setMode('boss');
   boss.def().onStart();
+  if(typeof bossLine==='function') bossLine('intro');
+  if(typeof maybeSay==='function') maybeSay(brad,'bossSpot',0);
 }
 // совместимость со старыми вызовами
 function startBoss(){ startBossKind('fridge'); }
@@ -57,7 +113,7 @@ function onClimaxDefeated(){
 }
 function advanceZone(){
   game.zone++; game.climaxDefeated=false;
-  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; notes.length=0; pickups.length=0;
+  enemies.length=0; bossShots.length=0; iceWalls.length=0; toasts.length=0; pickups.length=0; clearSpeeches();
   boss.reset(); game.eliteActive=false; game.elite=null;
   buildWorld(); buildBg();
   brad.x=Math.min(260,WORLD.w*0.12); brad.y=WORLD.groundY-brad.h*0.5; brad.vx=0; brad.vy=0;
@@ -67,6 +123,7 @@ function advanceZone(){
   fadeIn();
   const Z=curZone();
   bossBanner('ЗОНА: '+Z.name, Z.sub);
+  if(typeof maybeSay==='function') maybeSay(brad,'zone',0);
   Audio_.tone(523,0.3,'sine',0.16); Audio_.tone(784,0.3,'sine',0.16,null,0.1); Audio_.tone(1046,0.4,'sine',0.14,null,0.2);
 }
 
@@ -75,7 +132,7 @@ function damageBoss(dmg,fx,fy,big){
   if(!boss.active || boss.state==='intro' || boss.state==='dying') return;
   boss.def().damage(dmg,fx,fy,big);
 }
-function checkBossPhase(){ if(boss.active) boss.def().checkPhase(); }
+function checkBossPhase(){ if(!boss.active) return; const prev=boss.phase; boss.def().checkPhase(); if(boss.phase===3 && prev<3 && typeof bossLine==='function') bossLine('p3'); }
 function updateBoss(dt){ if(!boss.active) return; boss.def().update(dt); }
 function bossDie(){ if(!boss.active || boss.state==='dying') return; FX.addHitStop(0.12); FX.addSlow(0.9); boss.def().die(); }
 function bossContactCheck(){ if(!boss.active || boss.state==='intro' || boss.state==='dying') return; boss.def().contact(); }
@@ -203,6 +260,14 @@ function washerSuck(dt){
   if(Math.random()<0.5){ const a=rand(0,TAU), r=rand(80,210);
     spawnParticle({x:boss.x+Math.cos(a)*r,y:boss.cy+Math.sin(a)*r*0.6,vx:-Math.cos(a)*220,vy:-Math.sin(a)*140,life:0.4,max:0.4,size:2,color:'#bfe8ff',add:true}); }
 }
+// «отжим»: радиальный залп белья/воды во все стороны
+function washerRadial(n){
+  Audio_.tone(240,0.22,'sawtooth',0.16,120); Cam.addShake(5);
+  const ox=boss.x, oy=boss.cy+boss.h*0.05;
+  for(let k=0;k<n;k++){ const ang=k/n*TAU + rand(-0.05,0.05);
+    spawnIceCube(ox,oy,ox+Math.cos(ang)*100,oy+Math.sin(ang)*100,{dmg:12,size:11,angle:ang,speed:300}); }
+  burst(ox,oy,14,{colors:['#bfe8ff','#dffff0','#fff'],smax:220,szmax:5});
+}
 
 // ====================================================================
 //  ТЕХ-ФРЕШ ПРАЙМ (prime) — атаки
@@ -216,21 +281,51 @@ function primeSaws(n){
   }
   burst(ox,oy,6,{colors:['#ffd27a','#ff8a1e'],smax:140,szmax:4,lmax:0.3});
 }
-function primePress(){
-  boss.press={state:'warn', x:clamp(brad.x,Cam.x+40,Cam.x+VW-40), t:0.85};
+function primePress(x){
+  boss.presses.push({state:'warn', x:clamp(x!=null?x:brad.x,Cam.x+40,Cam.x+VW-40), t:0.85});
   Audio_.tone(150,0.2,'square',0.12,210);
 }
+// барраж прессов по всей арене (с щелями)
+function primePressMulti(n){
+  const L=Cam.x+60, R=Cam.x+VW-60;
+  for(let k=0;k<n;k++){ const x=lerp(L,R,(k+0.5)/n)+rand(-24,24);
+    boss.presses.push({state:'warn', x:clamp(x,Cam.x+40,Cam.x+VW-40), t:0.8+k*0.14}); }
+  Audio_.tone(150,0.25,'square',0.14,190);
+}
 function updatePrimePress(dt){
-  const p=boss.press; if(!p) return;
-  if(p.state==='warn'){ p.t-=dt;
-    if(Math.random()<0.55) spawnParticle({x:p.x+rand(-22,22),y:WORLD.groundY-rand(0,220),vx:0,vy:-rand(20,60),life:0.3,max:0.3,size:3,color:'#ff5a40',add:true});
-    if(p.t<=0){ p.state='strike'; p.t=0.25;
-      Audio_.tone(70,0.3,'sawtooth',0.24,40); Audio_.noise(0.3,0.2,1000); Cam.addShake(12);
-      burst(p.x,WORLD.groundY-6,18,{colors:['#ffd27a','#ff8a1e','#fff'],smax:300,grav:300,szmax:6});
-      spawnGroundWave(p.x-10,-1,{dmg:16,speed:400}); spawnGroundWave(p.x+10,1,{dmg:16,speed:400});
-      if(brad.alive && !brad.dashing && Math.abs(brad.x-p.x)<74 && brad.onGround) brad.hurt(22,p.x);
-    }
-  } else if(p.state==='strike'){ p.t-=dt; if(p.t<=0) boss.press=null; }
+  for(let i=boss.presses.length-1;i>=0;i--){ const p=boss.presses[i];
+    if(p.state==='warn'){ p.t-=dt;
+      if(Math.random()<0.5) spawnParticle({x:p.x+rand(-22,22),y:WORLD.groundY-rand(0,220),vx:0,vy:-rand(20,60),life:0.3,max:0.3,size:3,color:'#ff5a40',add:true});
+      if(p.t<=0){ p.state='strike'; p.t=0.25;
+        Audio_.tone(70,0.3,'sawtooth',0.24,40); Audio_.noise(0.3,0.2,1000); Cam.addShake(9);
+        burst(p.x,WORLD.groundY-6,16,{colors:['#ffd27a','#ff8a1e','#fff'],smax:280,grav:300,szmax:6});
+        spawnGroundWave(p.x-10,-1,{dmg:15,speed:380}); spawnGroundWave(p.x+10,1,{dmg:15,speed:380});
+        if(brad.alive && !brad.dashing && Math.abs(brad.x-p.x)<74 && brad.onGround) brad.hurt(20,p.x);
+      }
+    } else { p.t-=dt; if(p.t<=0) boss.presses.splice(i,1); }
+  }
+}
+// Roomba: развёртка луча по полу (перепрыгнуть)
+function updateRoombaSweep(dt){
+  const s=boss.sweep; if(!s) return;
+  if(s.state==='warn'){ s.t-=dt;
+    if(Math.random()<0.5) spawnParticle({x:rand(Cam.x,Cam.x+VW),y:s.y,vx:0,vy:rand(-10,10),life:0.3,max:0.3,size:3,color:'#9fe06a',add:true});
+    if(s.t<=0){ s.state='fire'; s.t=0.3; fireRoombaSweep(s.y); }
+  } else { s.t-=dt; if(s.t<=0) boss.sweep=null; }
+}
+function fireRoombaSweep(y){
+  Audio_.tone(120,0.4,'sawtooth',0.24,90); Audio_.noise(0.35,0.2,1500); Cam.addShake(8);
+  for(let x=Cam.x-40;x<Cam.x+VW+40;x+=26) spawnParticle({x,y:y+rand(-8,8),vx:0,vy:rand(-25,25),life:rand(0.15,0.35),max:0.35,size:rand(4,8),color:pick(['#9fe06a','#d4f5a0','#fff']),add:true});
+  if(brad.alive && !brad.dashing && Math.abs((brad.y-brad.h*0.4)-y)<brad.h*0.6) brad.hurt(16, brad.x);
+}
+// вертикальная стена пил с разрывом — надо попасть в щель
+function primeSawWall(){
+  const dir=boss.facing; const ox=boss.x - dir*boss.w*0.2;
+  const gap=randi(1,3);
+  Audio_.tone(260,0.2,'square',0.14,400);
+  for(let k=0;k<6;k++){ if(k===gap||k===gap+1) continue;
+    spawnBullet(ox, WORLD.groundY-30-k*46, dir<0?Math.PI:0, {dmg:12,size:11,speed:300,g:0,life:3.4}); }
+  floatText(boss.x,boss.cy-boss.h*0.5,'ПИЛЫ!',{color:'#ff9a4a',size:14,font:'display',vy:-24,life:0.8});
 }
 function primeSummon(n){
   for(let k=0;k<n;k++){ const sx=clamp(boss.x+rand(-180,180),60,WORLD.w-60);
@@ -269,8 +364,7 @@ const BOSS_KINDS={
       floatText(fx, fy-10, final.toString(), {color:mult>1?'#bfe8ff':'#fff', size:mult>1?24:16, weight:900});
       if(mult>1) floatText(boss.x, boss.cy-boss.h*0.4, mult>2?'СЗАДИ! ×2.6':'КОМПРЕССОР ×1.8',{color:'#bfe8ff',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#bfe8ff','#ffd27a'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1);
-      checkBossPhase();
+            checkBossPhase();
       if(boss.hp<=0) bossDie();
     },
     checkPhase(){
@@ -289,6 +383,12 @@ const BOSS_KINDS={
       // лёгкое покачивание/дрейф к центру арены, держим дистанцию
       const homeX=clamp(brad.x + boss.facing*-260, WORLD.w*0.45, WORLD.w-boss.w*0.55);
       if(boss.phase!==3){ boss.x=lerp(boss.x, homeX, 1-Math.pow(0.5,dt)); boss.hop=lerp(boss.hop,0,0.1); }
+      // сосульки сверху + морозные пятна на полу
+      boss.hazCD-=dt;
+      if(boss.hazCD<=0){ boss.hazCD = boss.phase===3? rand(0.7,1.2) : rand(1.6,2.4);
+        dropIcicle(clamp(brad.x+rand(-40,40),Cam.x+30,Cam.x+VW-30));
+        if(Math.random()<0.5) spawnFrost(clamp(brad.x+rand(-130,130),Cam.x+50,Cam.x+VW-50));
+      }
 
       if(boss.phase===1){
         boss.iceCD-=dt; boss.wallCD-=dt;
@@ -463,7 +563,7 @@ const BOSS_KINDS={
       floatText(fx,fy-10,final.toString(),{color:mult>1?'#7fe0c0':'#fff',size:mult>1?24:16,weight:900});
       if(mult>1) floatText(boss.x,boss.cy-boss.h*0.4,'БАРАБАН ×2.2',{color:'#7fe0c0',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#bfe8ff','#dffff0'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.5){
@@ -490,12 +590,17 @@ const BOSS_KINDS={
         if(boss.doorOpen>=1){ boss.state='spin'; boss.t=0; boss.iceCD=0.8; }
       } else if(boss.phase===2){
         boss.doorOpen=clamp(boss.doorOpen+dt*1.2,0,1);
-        washerSuck(dt); boss.iceCD-=dt;
+        washerSuck(dt); boss.iceCD-=dt; boss.hazCD-=dt;
         if(boss.iceCD<=0){ boss.iceCD=rand(1.4,2.0); washerWaterVolley(2); }
+        // «отжим»: радиальный залп + скользкая мыльная лужа
+        if(boss.hazCD<=0){ boss.hazCD=rand(3.4,4.6); washerRadial(12);
+          spawnSlick(clamp(brad.x+rand(-100,100),Cam.x+50,Cam.x+VW-50)); }
       } else if(boss.phase===3){
-        boss.iceCD-=dt; boss.wallCD-=dt; boss.hop=Math.abs(Math.sin(boss.t*10))*8;
+        boss.iceCD-=dt; boss.wallCD-=dt; boss.hazCD-=dt; boss.hop=Math.abs(Math.sin(boss.t*10))*8;
         if(boss.iceCD<=0){ boss.iceCD=rand(0.9,1.4); washerWaterVolley(3); }
         if(boss.wallCD<=0){ boss.wallCD=rand(2.0,3.0); washerSoapWave(); }
+        if(boss.hazCD<=0){ boss.hazCD=rand(2.4,3.4); washerRadial(14);
+          spawnSlick(clamp(brad.x+rand(-120,120),Cam.x+50,Cam.x+VW-50)); }
         boss.x=lerp(boss.x, clamp(brad.x,WORLD.w*0.3,WORLD.w*0.7), 1-Math.pow(0.8,dt));
       }
     },
@@ -537,7 +642,7 @@ const BOSS_KINDS={
       boss.hp-=final; boss.flash=0.1;
       floatText(fx,fy-10,final.toString(),{color:'#fff',size:16,weight:900});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#9fe06a','#ffd27a'],smax:big?240:170,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.55){
@@ -564,6 +669,23 @@ const BOSS_KINDS={
             burst(sx,WORLD.groundY-20,8,{colors:['#9fe06a','#caa15f'],smax:150,szmax:3}); }
           floatText(boss.x,boss.cy-boss.h*0.7,'ПОДКРЕПЛЕНИЕ!',{color:'#9fe06a',size:14,font:'display',vy:-24,life:0.9});
         } else boss.summonCD=1.5;
+      }
+      // фаза 2+: развёртка луча по полу ИЛИ рывок-таран
+      if(boss.phase>=2){ boss.hazCD-=dt;
+        if(boss.hazCD<=0 && boss.state!=='burst' && boss.state!=='charge' && !boss.sweep){
+          boss.hazCD=rand(4,6);
+          if(Math.random()<0.5){ boss.sweep={state:'warn',t:0.9,y:WORLD.groundY-24}; }
+          else { boss.state='charge'; boss.t3=0; boss.chargeDir=sign(brad.x-boss.x)||1; boss.vx=boss.chargeDir*640;
+            Audio_.tone(140,0.3,'sawtooth',0.2,60); floatText(boss.x,boss.cy-boss.h*0.6,'ТАРАН!',{color:'#ff6a4a',size:14,font:'display',vy:-24,life:0.7}); }
+        }
+      }
+      if(boss.sweep) updateRoombaSweep(dt);
+      if(boss.state==='charge'){
+        boss.x+=boss.vx*dt; boss.vx*=(1-dt*0.7); boss.x=clamp(boss.x, boss.w*0.5, WORLD.w-boss.w*0.5);
+        if(Math.random()<0.5) spawnParticle({x:boss.x-boss.chargeDir*boss.w*0.4,y:boss.cy+rand(-10,10),vx:-boss.chargeDir*160,vy:rand(-20,20),life:0.3,max:0.3,size:rand(3,6),color:pick(['#9fe06a','#fff']),add:true});
+        if(brad.alive && !brad.dashing && Math.abs(brad.x-boss.x)<(boss.w*0.5+brad.w*0.4) && Math.abs((brad.y-brad.h*0.4)-boss.cy)<(boss.h*0.5+brad.h*0.5)) brad.hurt(16,boss.x);
+        boss.t3+=dt; if(boss.t3>0.8 || Math.abs(boss.vx)<120){ boss.state='idle'; boss.atkCD=rand(1.5,2.5); }
+        return;
       }
       if(boss.atkCD<=0 && boss.state!=='burst'){ boss.state='burst'; boss.t2=0; Audio_.tone(90,0.2,'square',0.12,70); }
       if(boss.state==='burst'){ boss.t2=(boss.t2||0)+dt; boss.fire=(boss.fire||0)-dt;
@@ -613,7 +735,7 @@ const BOSS_KINDS={
       floatText(fx,fy-10,final.toString(),{color:mult>1?'#ff9a4a':'#fff',size:mult>1?24:16,weight:900});
       if(mult>1) floatText(boss.x,boss.cy-boss.h*0.4,'ЯДРО ×2.2',{color:'#ff9a4a',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#ffd27a','#ff8a1e'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.66){
@@ -631,28 +753,32 @@ const BOSS_KINDS={
       updatePrimePress(dt);
       const homeX=clamp(brad.x + boss.facing*-300, WORLD.w*0.4, WORLD.w-boss.w*0.55);
       if(boss.phase!==3){ boss.x=lerp(boss.x, homeX, 1-Math.pow(0.6,dt)); boss.hop=lerp(boss.hop,0,0.1); }
+      // конвейерный пол медленно толкает Брэда (в фазах ядра/перегрева)
+      if(boss.phase>=2 && brad.alive && brad.onGround){ const cd=Math.sin(performance.now()/2600)>0?1:-1; brad.vx += cd*80*dt; }
       if(boss.phase===1){
         boss.atkCD-=dt; boss.atkCD2-=dt;
-        if(boss.atkCD<=0 && !boss.press){ boss.atkCD=rand(2.6,3.6); primePress(); }
+        if(boss.atkCD<=0){ boss.atkCD=rand(2.6,3.6); primePress(); }
         if(boss.atkCD2<=0){ boss.atkCD2=rand(1.8,2.6); primeSaws(3); }
       } else if(boss.state==='opening'){
         boss.doorOpen=clamp(boss.doorOpen+dt*1.3,0,1);
-        if(boss.doorOpen>=1){ boss.state='core'; boss.t=0; boss.atkCD=1.0; boss.atkCD2=1.4; }
+        if(boss.doorOpen>=1){ boss.state='core'; boss.t=0; boss.atkCD=1.0; boss.atkCD2=1.4; boss.hazCD=3; }
       } else if(boss.phase===2){
         boss.doorOpen=clamp(boss.doorOpen+dt*1.3,0,1);
-        boss.atkCD-=dt; boss.atkCD2-=dt; boss.summonCD-=dt;
-        if(boss.atkCD<=0 && !boss.press){ boss.atkCD=rand(2.8,3.6); primePress(); }
-        if(boss.atkCD2<=0){ boss.atkCD2=rand(1.6,2.4); primeSaws(4); }
+        boss.atkCD-=dt; boss.atkCD2-=dt; boss.summonCD-=dt; boss.hazCD-=dt;
+        if(boss.atkCD<=0){ boss.atkCD=rand(3.0,4.0); primePressMulti(3); }
+        if(boss.atkCD2<=0){ boss.atkCD2=rand(1.8,2.6); primeSaws(4); }
+        if(boss.hazCD<=0){ boss.hazCD=rand(5,7); primeSawWall(); }
         if(boss.summonCD<=0){ const live=enemies.filter(e=>!e.dead).length; if(live<4){ boss.summonCD=rand(5,7); primeSummon(2);} else boss.summonCD=1.5; }
       } else if(boss.phase===3){
-        boss.atkCD-=dt; boss.atkCD2-=dt; boss.hop=Math.abs(Math.sin(boss.t*12))*9;
-        if(boss.atkCD<=0 && !boss.press){ boss.atkCD=rand(1.6,2.4); primePress(); }
-        if(boss.atkCD2<=0){ boss.atkCD2=rand(1.0,1.6); primeSaws(5); }
+        boss.atkCD-=dt; boss.atkCD2-=dt; boss.hazCD-=dt; boss.hop=Math.abs(Math.sin(boss.t*12))*9;
+        if(boss.atkCD<=0){ boss.atkCD=rand(2.0,2.8); primePressMulti(4); }
+        if(boss.atkCD2<=0){ boss.atkCD2=rand(0.9,1.4); primeSaws(5); }
+        if(boss.hazCD<=0){ boss.hazCD=rand(3.5,5); primeSawWall(); }
         boss.x=lerp(boss.x, clamp(brad.x,WORLD.w*0.3,WORLD.w*0.7), 1-Math.pow(0.85,dt));
       }
     },
     die(){
-      boss.state='dying'; boss.dieT=2.0; boss.doorOpen=0; boss.press=null; bossShots.length=0;
+      boss.state='dying'; boss.dieT=2.0; boss.doorOpen=0; boss.presses=[]; bossShots.length=0;
       floatText(boss.x,boss.cy-boss.h*0.5,'СИСТЕМА ОТКЛЮЧЕНА',{color:'#ff9a4a',size:22,font:'display',life:1.6,vy:-24});
       Audio_.tone(180,0.6,'sawtooth',0.3,36); Cam.addShake(20);
     },
@@ -729,6 +855,15 @@ function drawRoombaBoss(){
   ctx.fillStyle='#0a0f0a'; ctx.beginPath(); ctx.arc(0,-H*0.37,7,0,TAU); ctx.fill();
   ctx.fillStyle=ec; ctx.beginPath(); ctx.arc(0,-H*0.37,3.5,0,TAU); ctx.fill();
   ctx.restore();
+  // развёртка луча по полу (телеграф/луч)
+  if(boss.sweep){ const s=boss.sweep; ctx.save();
+    if(s.state==='warn'){ ctx.globalAlpha=0.4+0.4*Math.abs(Math.sin(performance.now()/60)); ctx.strokeStyle='#9fe06a'; ctx.lineWidth=3; ctx.setLineDash([12,8]);
+      ctx.beginPath(); ctx.moveTo(Cam.x-40,s.y); ctx.lineTo(Cam.x+VW+40,s.y); ctx.stroke(); ctx.setLineDash([]); }
+    else { ctx.globalCompositeOperation='lighter'; const lg=ctx.createLinearGradient(0,s.y-14,0,s.y+14);
+      lg.addColorStop(0,'rgba(120,230,90,0)'); lg.addColorStop(0.5,'rgba(180,255,120,.9)'); lg.addColorStop(1,'rgba(120,230,90,0)');
+      ctx.fillStyle=lg; ctx.fillRect(Cam.x-40,s.y-13,VW+80,26); ctx.globalCompositeOperation='source-over'; }
+    ctx.restore();
+  }
 }
 function drawPrimeBoss(){
   const W=boss.w,H=boss.h,cx=boss.x,cy=boss.cy;
@@ -744,7 +879,7 @@ function drawPrimeBoss(){
   // предупреждающие полосы
   ctx.fillStyle='rgba(255,180,60,.5)'; for(let k=-2;k<=2;k++){ ctx.fillRect(k*16-4,H*0.4-3,8,6); }
   // верхний пресс-молот
-  const pressDown=(boss.press && boss.press.state==='strike')?10:0;
+  const pressDown=(boss.presses && boss.presses.some(p=>p.state==='strike'))?10:0;
   ctx.fillStyle='#4a4038'; roundRect(-W*0.3,-H*0.5-18+pressDown,W*0.6,22,4); ctx.fill();
   ctx.fillStyle='#5a5048'; roundRect(-W*0.16,-H*0.5-6+pressDown,W*0.32,12,3); ctx.fill();
   // ядро
@@ -765,8 +900,8 @@ function drawPrimeBoss(){
   for(const ox of [-W*0.18,W*0.18]){ ctx.globalCompositeOperation='lighter'; ctx.fillStyle=over?'rgba(255,60,40,.7)':'rgba(255,150,60,.6)'; ctx.beginPath(); ctx.arc(ox,ey,9,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over'; ctx.fillStyle='#140d0a'; ctx.beginPath(); ctx.arc(ox,ey,5,0,TAU); ctx.fill(); ctx.fillStyle=eyeC; ctx.beginPath(); ctx.arc(ox,ey,2.4,0,TAU); ctx.fill(); }
   ctx.fillStyle='#2a2622'; roundRect(-W*0.42,H*0.5-6,18,10,2); ctx.fill(); roundRect(W*0.28,H*0.5-6,18,10,2); ctx.fill();
   ctx.restore();
-  // телеграф/удар пресса (мировые координаты)
-  if(boss.press){ const p=boss.press;
+  // телеграф/удар пресс-колонн (мировые координаты)
+  if(boss.presses) for(const p of boss.presses){
     ctx.save();
     if(p.state==='warn'){
       ctx.globalAlpha=0.25+0.2*Math.abs(Math.sin(performance.now()/70));

@@ -15,11 +15,11 @@ function startGame(){
   Audio_.init(); Audio_.resume();
   buildWorld(); buildBg();
   particles.length=0; toasts.length=0; enemies.length=0; crumbs.length=0; floaters.length=0;
-  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; notes.length=0; noteCard.t=0; pickups.length=0;
+  bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; pickups.length=0; clearSpeeches();
   game.crumbs=0; game.kills=0; game.time=0; game.gen++; game.bossDefeated=false;
   applyUpgrades();
-  brad.maxJumps=1; brad.reset();
-  Cam.x=0; Cam.y=0; Cam.shake=0;
+  brad.reset();
+  Cam.x=0; Cam.y=0; Cam.lookX=0; Cam.shake=0;
   Spawner.start();
   hideAll(); game.state='playing';
   fadeIn();
@@ -59,7 +59,7 @@ function gameOver(){
 function victory(){
   if(game.state==='win') return;
   game.bossDefeated=true; game.state='win';
-  enemies.length=0; bossShots.length=0; iceWalls.length=0; notes.length=0;
+  enemies.length=0; bossShots.length=0; iceWalls.length=0; clearSpeeches();
   const haul=game.crumbs;
   bankCrumbs(); // победа — добыча сохраняется в банк
   Save.data.bossKills=(Save.data.bossKills||0)+1;
@@ -91,17 +91,19 @@ function update(dt){
   brad.update(dt);
   updateEnemies(dt);
   updateBoss(dt);
+  updateHazards(dt);
   bossContactCheck();
   updateBossShots(dt);
   updateIceWalls(dt);
   updateToasts(dt);
   updateCrumbs(dt);
   updatePickups(dt);
-  updateNotes(dt);
   updateParticles(dt);
   updateFloaters(dt);
   updateBanner(dt);
-  updateNoteCard(dt);
+  updateSpeeches(dt);
+  updateGates(dt);
+  updateSecrets(dt);
   Spawner.update(dt);
   Cam.update(dt, brad);
   Input._consume();
@@ -120,22 +122,25 @@ function render(t){
   if(inWorld){
     drawPlatforms();
     ctx.save(); ctx.translate(-Cam.x, 0);
+    drawGates();
     drawIceWalls();
+    drawHazards();
     drawBoss();
+    drawSecrets();
     drawCrumbs();
     drawPickups();
-    drawNotes();
     for(const e of enemies) drawEnemy(e);
     for(const tt of toasts) drawToast(tt);
     drawBossShots();
     brad.draw();
     drawParticles();
     drawFloaters();
+    drawSpeeches();
     ctx.restore();
   }
   ctx.restore();
   // HUD
-  if(inWorld){ drawHUD(); drawBanner(); drawNoteCard(); }
+  if(inWorld){ drawHUD(); drawBanner(); }
   // плавное затемнение (переходы зон / старт)
   if(Fade.a>0){ ctx.fillStyle='rgba(0,0,0,'+Fade.a.toFixed(3)+')'; ctx.fillRect(0,0,VW,VH); }
 }
@@ -144,6 +149,8 @@ function loop(ts){
   let real=(ts-last)/1000; last=ts;
   if(real>0.1) real=0.1; // защита от больших скачков (вкладка свернута)
   if(Fade.a>0) Fade.a=Math.max(0, Fade.a-real*2.0);
+  // пролог-катсцена — свой update/draw поверх обычного цикла
+  if(game.state==='cutscene'){ Cutscene.update(real); Cutscene.render(ts); requestAnimationFrame(loop); return; }
   // фриз кадра (hit-stop): рендерим, но симуляцию замораживаем
   if(FX.hitStop>0){ FX.hitStop-=real; render(ts); requestAnimationFrame(loop); return; }
   let scale=1;
@@ -179,7 +186,9 @@ window.addEventListener('resize', checkOrientation);
 window.addEventListener('orientationchange',()=>setTimeout(checkOrientation,160));
 
 // синхронизация состояния сенсорных кнопок (кольцо заряда, готовность ульты)
-document.getElementById('btn-play').addEventListener('click',startGame);
+// «Играть» из меню → авто-пролог, затем забег (скипабельно). Рестарты — сразу в бой.
+document.getElementById('btn-play').addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); Cutscene.start(startGame); });
+document.getElementById('btn-skip-cut').addEventListener('click',()=>Cutscene.skip());
 document.getElementById('btn-restart').addEventListener('click',startGame);
 document.getElementById('btn-restart-p').addEventListener('click',startGame);
 document.getElementById('btn-win-restart').addEventListener('click',startGame);
@@ -191,6 +200,30 @@ document.getElementById('btn-mute').addEventListener('click',e=>{
   Audio_.muted=!Audio_.muted; e.currentTarget.textContent=Audio_.muted?'🔇':'🔊';
   Music._ramp();
 });
+
+// ------------------------------ Полный экран -------------------------
+function isFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function enterFullscreen(){
+  const el=document.documentElement;
+  const req=el.requestFullscreen||el.webkitRequestFullscreen||el.webkitRequestFullScreen;
+  if(req){ const p=req.call(el); if(p&&p.catch) p.catch(()=>{}); }
+  // на мобильном заодно фиксируем горизонтальную ориентацию (если браузер разрешит)
+  try{ if(screen.orientation && screen.orientation.lock) screen.orientation.lock('landscape').catch(()=>{}); }catch(_){}
+}
+function exitFullscreen(){
+  const exit=document.exitFullscreen||document.webkitExitFullscreen||document.webkitCancelFullScreen;
+  if(exit){ const p=exit.call(document); if(p&&p.catch) p.catch(()=>{}); }
+}
+function toggleFullscreen(){ if(isFullscreen()) exitFullscreen(); else enterFullscreen(); }
+function syncFsBtn(){ const b=document.getElementById('btn-fs'); if(b){ b.textContent=isFullscreen()?'🗕':'⛶'; b.title=isFullscreen()?'Свернуть':'Полный экран'; } }
+document.getElementById('btn-fs').addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); toggleFullscreen(); });
+document.addEventListener('fullscreenchange',()=>{ syncFsBtn(); setTimeout(resize,60); });
+document.addEventListener('webkitfullscreenchange',()=>{ syncFsBtn(); setTimeout(resize,60); });
+syncFsBtn();
+// если API полного экрана недоступен (напр. Safari на iPhone) — прячем кнопку
+if(!(document.documentElement.requestFullscreen||document.documentElement.webkitRequestFullscreen||document.documentElement.webkitRequestFullScreen)){
+  const b=document.getElementById('btn-fs'); if(b) b.style.display='none';
+}
 
 // прячем "загрузку" когда шрифты готовы (или по таймауту)
 function ready(){ document.getElementById('loading').style.display='none'; }

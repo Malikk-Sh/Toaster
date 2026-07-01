@@ -25,13 +25,17 @@ function drawHUD(){
   ctx.fillStyle='#b5722a'; ctx.fillRect(bx+3,cy-4,3,3); ctx.fillRect(bx+8,cy+1,3,3);
   ctx.fillStyle='#fff'; ctx.fillText(game.crumbs.toString(), bx+22, cy+1);
   ctx.font="800 11px 'Rubik',sans-serif"; ctx.fillStyle='#bfa789'; ctx.textBaseline='top';
-  // --- заряды рывка (пипки) ---
-  if(brad.dashMax>1){
+  // --- заряды рывка (компактный индикатор — на десктопе; на тач заряды на кнопке) ---
+  if(brad.dashMax>1 && !isTouch){
     const dyp=cy+16; let dxp=bx+2;
+    const regen = brad.dashLeft<brad.dashMax ? 1-clamp(brad.dashRegenT/brad.dashRegen,0,1) : 0;
     for(let k=0;k<brad.dashMax;k++){
       const filled = k < Math.floor(brad.dashLeft);
       ctx.fillStyle = filled? '#9fe06a':'rgba(255,255,255,.18)';
-      roundRect(dxp,dyp,16,5,2); ctx.fill(); dxp+=20;
+      roundRect(dxp,dyp,16,5,2); ctx.fill();
+      // прогресс отката на следующей пипке
+      if(!filled && k===Math.floor(brad.dashLeft) && regen>0){ ctx.fillStyle='rgba(159,224,106,.6)'; roundRect(dxp,dyp,16*regen,5,2); ctx.fill(); }
+      dxp+=20;
     }
     ctx.font="800 9px 'Rubik',sans-serif"; ctx.fillStyle='#9fe06a'; ctx.fillText('РЫВОК', dxp+2, dyp-2);
   }
@@ -56,17 +60,6 @@ function drawHUD(){
     ctx.fillText(sub, VW/2, top+19);
   }
 
-  // --- Ульта-кольцо (правый верх) ---
-  const ur=24, ux=VW-pad-ur-46, uy=top+ur+2;
-  ctx.save(); ctx.translate(ux,uy);
-  ctx.lineWidth=6; ctx.strokeStyle='rgba(0,0,0,.4)'; ctx.beginPath(); ctx.arc(0,0,ur,0,TAU); ctx.stroke();
-  const uf=clamp(brad.ult/brad.ultMax,0,1);
-  ctx.strokeStyle= uf>=1? (Math.floor(performance.now()/200)%2?'#fff':'#ffd23f') : '#ff8a1e';
-  ctx.lineCap='round'; ctx.beginPath(); ctx.arc(0,0,ur,-Math.PI/2,-Math.PI/2+TAU*uf); ctx.stroke();
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  ctx.font="900 11px 'Russo One',sans-serif"; ctx.fillStyle=uf>=1?'#ffd23f':'#cdb795';
-  ctx.fillText(uf>=1?'УЛЬТА':Math.floor(uf*100)+'%',0,0);
-  ctx.restore();
   ctx.restore();
   ctx.textAlign='left'; ctx.textBaseline='alphabetic';
 }
@@ -110,17 +103,24 @@ function drawEliteBar(top, e){
 
 // ------------------------------ Хелпер фигур -------------------------
 const elChargeRing=document.getElementById('chargeRing');
-const elUlt=document.getElementById('btn-ult');
+const elDashFill=document.getElementById('dashFill');
+const elDashCount=document.getElementById('dashCount');
 function syncTouchUI(){
-  // кольцо заряда
+  // кольцо заряда ЖАР
   const c=brad.charge;
   if(c>0.05){ elChargeRing.style.borderColor=`rgba(255,${200-c*160|0},40,1)`;
     elChargeRing.style.transform=`scale(${1+c*0.12})`; elChargeRing.style.opacity=1; }
   else { elChargeRing.style.opacity=0; }
-  // ульта готова?
-  const ready=brad.ult>=brad.ultMax && !brad.ulting;
-  elUlt.classList.toggle('ready',ready);
-  elUlt.classList.toggle('notready',!ready);
+  // заряды рывка прямо на кнопке: бейдж-счётчик + оверлей отката снизу вверх
+  if(elDashCount){
+    if(brad.dashMax>1){
+      elDashCount.textContent=Math.floor(brad.dashLeft);
+      elDashCount.style.display='flex';
+    } else { elDashCount.style.display='none'; }
+    const regen = brad.dashLeft<brad.dashMax ? 1-clamp(brad.dashRegenT/brad.dashRegen,0,1) : (brad.dashLeft>0?1:0);
+    elDashFill.style.height = (regen<1 ? (regen*100).toFixed(0)+'%' : '0%');
+    elDashFill.style.opacity = (brad.dashLeft<brad.dashMax) ? 1 : 0;
+  }
 }
 
 // ------------------------------ Меню / DOM ---------------------------
@@ -211,7 +211,6 @@ function refreshMenu(){
   const owned=Object.keys(Save.data.owned).length;
   const ng=Save.data.ngPlus||0;
   let line = '🍞 Крошек в банке: <b style="color:#f2c879">'+Save.data.bank+'</b> · апгрейдов: <b style="color:#9fe06a">'+owned+'</b>';
-  line += '<br>📄 Записок: <b style="color:#e8dcc4">'+notesFoundCount()+' / '+NOTES.length+'</b>';
   if(ng>0) line += ' · <b style="color:#ff7a6a">Новая Игра+'+ng+'</b>';
   if(Save.data.bossKills>0) line += '<br>🏆 Полных прохождений: '+Save.data.bossKills;
   else if(Save.data.bestWave>0) line += '<br>Рекорд: волна '+Save.data.bestWave;

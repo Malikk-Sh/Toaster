@@ -1,9 +1,9 @@
 "use strict";
 const Input={
   left:false,right:false,
-  jumpEdge:false, dashEdge:false, ultEdge:false,
+  jumpEdge:false, dashEdge:false,
   charging:false, chargeReleaseEdge:false,
-  _consume(){ this.jumpEdge=false; this.dashEdge=false; this.ultEdge=false; this.chargeReleaseEdge=false; },
+  _consume(){ this.jumpEdge=false; this.dashEdge=false; this.chargeReleaseEdge=false; },
   setCharging(v){
     if(this.charging && !v) this.chargeReleaseEdge=true;
     this.charging=v;
@@ -18,7 +18,6 @@ window.addEventListener('keydown',e=>{
   if(keyMap[e.code]){ Input[keyMap[e.code]]=true; e.preventDefault(); }
   if(['Space','KeyW','ArrowUp'].includes(e.code)){ Input.jumpEdge=true; e.preventDefault(); }
   if(['ShiftLeft','ShiftRight'].includes(e.code)){ Input.dashEdge=true; e.preventDefault(); }
-  if(['KeyQ','KeyE'].includes(e.code)){ Input.ultEdge=true; e.preventDefault(); }
   if(['KeyJ','Enter'].includes(e.code)){ Input.setCharging(true); e.preventDefault(); }
   if(e.code==='Escape'){ togglePause(); }
 });
@@ -38,7 +37,6 @@ function bindTouch(el,act){
     else if(act==='right') Input.right=true;
     else if(act==='jump') Input.jumpEdge=true;
     else if(act==='dash') Input.dashEdge=true;
-    else if(act==='ult') Input.ultEdge=true;
     else if(act==='charge') Input.setCharging(true);
     if(el.setPointerCapture && e.pointerId!=null){ try{el.setPointerCapture(e.pointerId);}catch(_){} }
   };
@@ -58,7 +56,7 @@ document.querySelectorAll('.tbtn').forEach(el=>bindTouch(el,el.dataset.act));
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) || window.matchMedia('(pointer:coarse)').matches;
 document.body.classList.add(isTouch?'touch':'desktop');
 document.getElementById('start-hint').innerHTML = isTouch
-  ? 'Двигайся <b>◀ ▶</b>, прыгай и уворачивайся <b>рывком</b>. Тосты летят сами. Держи <b>ЖАР</b> для мощного выстрела. Накопи <b>ульту</b>.'
-  : '<b>A/D</b> — ходьба · <b>W</b> — прыжок · <b>Shift</b> — рывок · <b>держать J / ЛКМ</b> — заряженный выстрел · <b>Q</b> — ульта · <b>Esc</b> — пауза';
+  ? 'Двигайся <b>◀ ▶</b>, прыгай и уворачивайся <b>рывком</b>. Жми <b>ЖАР</b> для быстрого тоста, держи — для мощного заряженного.'
+  : '<b>A/D</b> — ходьба · <b>W</b> — прыжок · <b>Shift</b> — рывок · <b>J / ЛКМ</b> — выстрел (тап — слабый, зажать — сильный) · <b>Esc</b> — пауза';
 
 // ------------------------------ Камера -------------------------------
