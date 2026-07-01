@@ -107,33 +107,58 @@ function drawPipesLayer(par, baseY, color, h, seed){
     if((idx+seed)%3===0){ ctx.fillStyle='rgba(120,255,200,.10)'; ctx.beginPath(); ctx.arc(sx+pw*0.5, baseY-ph, pw*0.22,0,TAU); ctx.fill(); }
   }
 }
-// Завод: силуэты машин/труб с мигающими аварийными лампами
+// Завод: индустриальные машины — корпуса, шестерни, трубы, дымоходы с дымом
+function drawGearSil(cx,cy,r,rot,color){
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(rot);
+  ctx.fillStyle=color; const teeth=9; ctx.beginPath();
+  for(let i=0;i<teeth;i++){ const a0=i/teeth*TAU, a1=(i+0.5)/teeth*TAU;
+    ctx.lineTo(Math.cos(a0)*r, Math.sin(a0)*r);
+    ctx.lineTo(Math.cos(a0+0.11)*(r*1.2), Math.sin(a0+0.11)*(r*1.2));
+    ctx.lineTo(Math.cos(a1-0.11)*(r*1.2), Math.sin(a1-0.11)*(r*1.2));
+    ctx.lineTo(Math.cos(a1)*r, Math.sin(a1)*r);
+  }
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.5)'; ctx.beginPath(); ctx.arc(0,0,r*0.42,0,TAU); ctx.fill();
+  ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,120,60,.12)'; ctx.beginPath(); ctx.arc(0,0,r*0.2,0,TAU); ctx.fill();
+  ctx.restore(); ctx.globalCompositeOperation='source-over';
+}
 function drawFactoryLayer(par, baseY, color, h, seed){
-  const step=120;
+  const step=175;
   const startIdx=Math.floor((Cam.x*par - step)/step);
   const endIdx=Math.ceil((Cam.x*par + VW + step)/step);
+  const now=performance.now();
   for(let idx=startIdx; idx<=endIdx; idx++){
     const sx=idx*step - Cam.x*par;
     const r=Math.abs(Math.sin((idx+seed)*1.1));
-    const bh=h*(0.3+0.7*r);
-    const bw=step-8-rand0(idx+seed,22);
-    const bx=sx+4;
-    ctx.fillStyle=color; ctx.fillRect(bx, baseY-bh, bw, bh+VH-baseY);
-    // труба-дымоход на части блоков
-    if(((idx+seed)%3+3)%3===0){ ctx.fillStyle=color; ctx.fillRect(bx+bw*0.3, baseY-bh-42, 14, 46); }
-    // тусклые янтарные окна
-    const cols=Math.max(2,(bw/16)|0), rows=Math.max(2,(bh/22)|0);
-    for(let cxi=0;cxi<cols;cxi++) for(let ryi=0;ryi<rows;ryi++){
-      if(((cxi*5+ryi*11+idx*3)%4)!==0) continue;
-      ctx.fillStyle='rgba(255,150,70,.16)';
-      ctx.fillRect(bx+6+cxi*(bw/cols), baseY-bh+6+ryi*(bh/rows), 5, 6);
+    const bh=h*(0.4+0.55*r);
+    const bw=step-16;
+    const bx=sx+8, top=baseY-bh;
+    // приземистый корпус машины
+    ctx.fillStyle=color; ctx.fillRect(bx, top, bw, bh+VH-baseY);
+    ctx.fillRect(bx+bw*0.14, top-14, bw*0.46, 16); // ступень-крыша
+    // горизонтальная магистральная труба поверх (соединяет блоки)
+    ctx.fillStyle=color; ctx.fillRect(sx-step*0.12, top+16, step*1.24, 13);
+    ctx.fillStyle='rgba(0,0,0,.4)'; for(let fx=bx-12; fx<bx+bw+12; fx+=32) ctx.fillRect(fx,top+14,4,17);
+    // большая шестерня на части блоков (вращается)
+    if(((idx+seed)%2+2)%2===0) drawGearSil(bx+bw*0.5, top+bh*0.42, Math.min(bw*0.26,38), now/1400*(idx%2?1:-1), color);
+    // дымоход + дрейфующий дым
+    if(((idx+seed)%3+3)%3===0){
+      const stx=bx+bw*0.26, sth=46;
+      ctx.fillStyle=color; ctx.fillRect(stx, top-sth, 16, sth);
+      ctx.fillStyle='rgba(0,0,0,.35)'; ctx.fillRect(stx-2, top-sth, 20, 5);
+      ctx.save(); ctx.globalCompositeOperation='lighter';
+      for(let s=0;s<3;s++){ const pph=(now/1000*13 + s*24 + idx*9)%72;
+        ctx.fillStyle='rgba(140,100,90,'+(0.12*(1-pph/72)).toFixed(3)+')';
+        ctx.beginPath(); ctx.arc(stx+8 + Math.sin((pph+idx)*0.11)*9, top-sth-pph, 7+pph*0.15, 0, TAU); ctx.fill(); }
+      ctx.restore();
     }
-    // мигающая красная аварийная лампа
-    if(((idx*3+seed)%4+4)%4===0){
-      const blink=0.35+0.65*Math.abs(Math.sin(performance.now()/300 + idx));
-      ctx.fillStyle='rgba(255,60,40,'+(0.6*blink).toFixed(2)+')';
-      ctx.beginPath(); ctx.arc(bx+bw*0.5, baseY-bh-6, 4,0,TAU); ctx.fill();
-    }
+    // тусклые панели индикаторов
+    ctx.fillStyle='rgba(255,150,70,.14)';
+    for(let cyi=0;cyi<3;cyi++) for(let cxi=0;cxi<2;cxi++){ if(((cxi*3+cyi*5+idx)%3)!==0) continue;
+      ctx.fillRect(bx+bw*0.62+cxi*14, top+34+cyi*18, 9, 6); }
+    // мигающая аварийная лампа
+    if(((idx*2+seed)%3+3)%3===0){ const blink=0.35+0.65*Math.abs(Math.sin(now/300 + idx));
+      ctx.fillStyle='rgba(255,80,40,'+(0.6*blink).toFixed(2)+')'; ctx.beginPath(); ctx.arc(bx+bw*0.5, top-4, 4,0,TAU); ctx.fill(); }
   }
 }
 function drawJunkLayer(par, baseY, color, h, seed){
@@ -191,9 +216,16 @@ function drawGround(){
     for(let x=50;x<WORLD.w;x+=240){ ctx.fillStyle='rgba(150,200,180,.18)';
       for(let k=0;k<6;k++) ctx.fillRect(x+k*9, g+30, 4, 12); }
   } else if(Z.kind==='factory'){
-    // рельс конвейера + болты
-    for(let x=0;x<WORLD.w;x+=40){ ctx.fillStyle='rgba(255,150,80,.13)'; ctx.fillRect(x, g+26, 24, 4); }
-    for(let x=30;x<WORLD.w;x+=120){ ctx.fillStyle='#7a3a28'; ctx.beginPath(); ctx.arc(x,g+14,3,0,TAU); ctx.fill(); }
+    // движущаяся конвейерная лента + ролики + предупреждающие шевроны
+    const off=(performance.now()/1000*46)%44;
+    ctx.fillStyle='rgba(255,180,60,.13)';
+    for(let x=-44;x<WORLD.w+44;x+=44){ const bx=x+off;
+      ctx.beginPath(); ctx.moveTo(bx,g+6); ctx.lineTo(bx+20,g+6); ctx.lineTo(bx+8,g+16); ctx.lineTo(bx-12,g+16); ctx.closePath(); ctx.fill(); }
+    // ролики конвейера (вращаются)
+    for(let x=0;x<WORLD.w;x+=54){
+      ctx.fillStyle='rgba(120,70,50,.55)'; ctx.beginPath(); ctx.arc(x, g+30, 7, 0, TAU); ctx.fill();
+      ctx.save(); ctx.translate(x,g+30); ctx.rotate(performance.now()/280); ctx.fillStyle='#2a1712'; ctx.fillRect(-6,-1.2,12,2.4); ctx.restore();
+    }
   } else {
     for(let x=0;x<WORLD.w;x+=90){
       ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x+ (x*7%40), g+18+ (x*3%20), 30,6);
@@ -206,14 +238,26 @@ function drawGround(){
   ctx.restore();
 }
 function drawPlatforms(){
+  const Z=curZone(); const factory=Z.kind==='factory';
   ctx.save(); ctx.translate(-Cam.x,0);
   for(const pl of WORLD.platforms){ if(pl.ground) continue;
-    // платформа из металлолома
-    ctx.fillStyle='#1c140e'; roundRect(pl.x,pl.y+3,pl.w,pl.h,4); ctx.fill();
-    ctx.fillStyle='#5a4530'; roundRect(pl.x,pl.y,pl.w,pl.h,4); ctx.fill();
-    ctx.fillStyle='#caa15f'; ctx.fillRect(pl.x,pl.y,pl.w,2);
-    ctx.fillStyle='rgba(0,0,0,.3)';
-    for(let x=pl.x+8;x<pl.x+pl.w-6;x+=22){ ctx.fillRect(x,pl.y+pl.h-5,3,3); }
+    if(factory){
+      // металлический катуолк с решёткой и предупреждающей кромкой
+      ctx.fillStyle='#141014'; roundRect(pl.x,pl.y+3,pl.w,pl.h,3); ctx.fill();
+      ctx.fillStyle='#3a3f46'; roundRect(pl.x,pl.y,pl.w,pl.h,3); ctx.fill();
+      // решётка
+      ctx.fillStyle='rgba(0,0,0,.35)';
+      for(let x=pl.x+4;x<pl.x+pl.w-3;x+=9) ctx.fillRect(x,pl.y+3,3,pl.h-5);
+      // жёлто-чёрная кромка
+      for(let x=pl.x;x<pl.x+pl.w;x+=14){ ctx.fillStyle=((x/14)|0)%2?'#e8b53a':'#1a1206'; ctx.fillRect(x,pl.y,14,3); }
+    } else {
+      // платформа из металлолома
+      ctx.fillStyle='#1c140e'; roundRect(pl.x,pl.y+3,pl.w,pl.h,4); ctx.fill();
+      ctx.fillStyle='#5a4530'; roundRect(pl.x,pl.y,pl.w,pl.h,4); ctx.fill();
+      ctx.fillStyle='#caa15f'; ctx.fillRect(pl.x,pl.y,pl.w,2);
+      ctx.fillStyle='rgba(0,0,0,.3)';
+      for(let x=pl.x+8;x<pl.x+pl.w-6;x+=22){ ctx.fillRect(x,pl.y+pl.h-5,3,3); }
+    }
   }
   ctx.restore();
 }
