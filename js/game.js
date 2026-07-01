@@ -18,7 +18,7 @@ function startGame(){
   bossShots.length=0; iceWalls.length=0; boss.reset(); banner.t=0; notes.length=0; noteCard.t=0; pickups.length=0;
   game.crumbs=0; game.kills=0; game.time=0; game.gen++; game.bossDefeated=false;
   applyUpgrades();
-  brad.maxJumps=1; brad.reset();
+  brad.reset();
   Cam.x=0; Cam.y=0; Cam.shake=0;
   Spawner.start();
   hideAll(); game.state='playing';

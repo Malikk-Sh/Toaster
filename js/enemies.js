@@ -57,7 +57,6 @@ function killEnemy(e){
   spawnParticle({x:e.x,y:e.y-e.h*0.4,vx:0,vy:0,life:0.2,max:0.2,size:e.w*0.7,color:'#ffae42',add:true,shrink:false});
   Audio_.explode(); Cam.addShake(big?14:6);
   for(let i=0;i<e.crumbs;i++) spawnCrumb(e.x+rand(-16,16), e.y-e.h*0.4);
-  brad.gainUlt(big?20:6);
   maybeDropNote(e.x, e.y-e.h*0.5);
   maybeDropHeal(e.x, e.y-e.h*0.5);
   // апгрейд «Цепная детонация»

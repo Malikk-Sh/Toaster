@@ -14,7 +14,7 @@ function fireToast(x,y,target,opt={}){
   if(opt.angle!=null){ const sp=opt.speed||620; vx=Math.cos(opt.angle)*sp; vy=Math.sin(opt.angle)*sp; }
   toasts.push({x,y,vx,vy,size:opt.size||10,dmg:opt.dmg||10,
     charged:!!opt.charged,aoe:opt.aoe||0,life:opt.life||2.2,rot:rand(0,TAU),
-    spin:rand(-10,10)*sign(vx),hit:false,trail:0});
+    spin:rand(-10,10)*sign(vx),hit:false,trail:0,pierce:!!opt.pierce,hitSet:null});
 }
 function explodeToast(t){
   const r = t.charged? (38+t.aoe) : 0;
@@ -57,13 +57,16 @@ function updateToasts(dt){
     let struck=null;
     for(const e of enemies){
       if(e.dead) continue;
+      if(t.hitSet && t.hitSet.indexOf(e)>=0) continue; // не бьём повторно при пробитии
       if(Math.abs(t.x-e.x)<e.w*0.55+t.size && Math.abs(t.y-(e.y-e.h*0.4))<e.h*0.55+t.size){ struck=e; break; }
     }
     if(struck){
       damageEnemy(struck, t.dmg, t.x, t.y, t.charged);
       struck.burn=Math.max(struck.burn, (t.charged?2.5:1.4)*brad.burnMul);
-      explodeToast(t);
       if(!t.charged){ Audio_.hit(); burst(t.x,t.y,7,{colors:['#ffd27a','#ff8a1e'],smax:180,szmax:4,lmax:0.4}); }
+      // пробивающий тост проходит сквозь первого врага
+      if(t.pierce && !t.charged){ (t.hitSet||(t.hitSet=[])).push(struck); t.pierce=false; continue; }
+      explodeToast(t);
       toasts.splice(i,1); continue;
     }
     // попадание в босса
@@ -304,7 +307,7 @@ function updateCrumbs(dt){
     if(c.y>WORLD.groundY-4){ c.y=WORLD.groundY-4; c.vy*=-0.3; c.vx*=0.7; }
     // подбор
     if(brad.alive && d2 < (brad.w*0.6)**2){
-      game.crumbs++; brad.gainUlt(1.4); Audio_.pickup();
+      game.crumbs++; Audio_.pickup();
       spawnParticle({x:c.x,y:c.y,vx:0,vy:-40,life:0.3,max:0.3,size:6,color:'#ffd27a',add:true});
       crumbs.splice(i,1);
     }

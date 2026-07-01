@@ -269,8 +269,7 @@ const BOSS_KINDS={
       floatText(fx, fy-10, final.toString(), {color:mult>1?'#bfe8ff':'#fff', size:mult>1?24:16, weight:900});
       if(mult>1) floatText(boss.x, boss.cy-boss.h*0.4, mult>2?'СЗАДИ! ×2.6':'КОМПРЕССОР ×1.8',{color:'#bfe8ff',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#bfe8ff','#ffd27a'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1);
-      checkBossPhase();
+            checkBossPhase();
       if(boss.hp<=0) bossDie();
     },
     checkPhase(){
@@ -463,7 +462,7 @@ const BOSS_KINDS={
       floatText(fx,fy-10,final.toString(),{color:mult>1?'#7fe0c0':'#fff',size:mult>1?24:16,weight:900});
       if(mult>1) floatText(boss.x,boss.cy-boss.h*0.4,'БАРАБАН ×2.2',{color:'#7fe0c0',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#bfe8ff','#dffff0'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.5){
@@ -537,7 +536,7 @@ const BOSS_KINDS={
       boss.hp-=final; boss.flash=0.1;
       floatText(fx,fy-10,final.toString(),{color:'#fff',size:16,weight:900});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#9fe06a','#ffd27a'],smax:big?240:170,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.55){
@@ -613,7 +612,7 @@ const BOSS_KINDS={
       floatText(fx,fy-10,final.toString(),{color:mult>1?'#ff9a4a':'#fff',size:mult>1?24:16,weight:900});
       if(mult>1) floatText(boss.x,boss.cy-boss.h*0.4,'ЯДРО ×2.2',{color:'#ff9a4a',size:14,font:'display',vy:-30,life:0.8});
       burst(fx,fy,big?6:4,{kind:'spark',colors:['#fff','#ffd27a','#ff8a1e'],smax:big?260:180,szmax:3,lmax:0.35,grav:160});
-      brad.gainUlt(big?2:1); checkBossPhase(); if(boss.hp<=0) bossDie();
+      checkBossPhase(); if(boss.hp<=0) bossDie();
     },
     checkPhase(){
       if(boss.phase===1 && boss.hp<=boss.maxhp*0.66){
