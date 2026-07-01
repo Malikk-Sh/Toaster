@@ -1,26 +1,26 @@
 "use strict";
 const ZONES=[
   { id:'dump', name:'СВАЛКА 404', sub:'Кладбище техники', kind:'dump',
-    waves:5, climax:'fridge',
+    waves:10, climax:'fridge',
     sky:[[0,'#2b1a3a'],[0.4,'#6e3b3a'],[0.72,'#c25a26'],[0.92,'#e8852b'],[1,'#f0a23a']],
     orb:{x:0.7,col:'rgba(255,220,150,.9)',core:'rgba(255,220,160,.95)',mid:'rgba(255,160,60,.5)',edge:'rgba(255,120,40,0)',r:46},
     hills:[[0.3,0.62,'#3a2336',120,0],[0.5,0.70,'#2c1a2a',90,1]],
     ground:[[0,'#4a3526'],[0.3,'#2e2117'],[1,'#160f0a']], edge:'#caa15f', edge2:'rgba(255,180,90,.25)',
     puddle:'rgba(255,150,70,.12)' },
   { id:'sewer', name:'ПОДЗЕМКА', sub:'Стоки под городом', kind:'sewer',
-    waves:5, climax:'washer',
+    waves:10, climax:'washer',
     sky:[[0,'#04100c'],[0.5,'#08201a'],[0.8,'#0c2e24'],[1,'#10362a']],
     orb:{x:0.6,col:'rgba(120,220,180,.30)',core:'rgba(180,255,220,.7)',mid:'rgba(80,200,150,.2)',edge:'rgba(60,180,140,0)',r:26},
     ground:[[0,'#13241f'],[0.3,'#0c1a16'],[1,'#06100d']], edge:'#3a9e7a', edge2:'rgba(120,255,200,.18)',
     puddle:'rgba(120,255,200,.12)' },
   { id:'city', name:'ГОРОД', sub:'Выход на поверхность', kind:'city',
-    waves:6, climax:'roomba',
+    waves:10, climax:'roomba',
     sky:[[0,'#06061a'],[0.45,'#14152e'],[0.8,'#27224a'],[1,'#3a2f5e']],
     orb:{x:0.78,col:'rgba(190,200,255,.45)',core:'rgba(228,232,255,.95)',mid:'rgba(150,170,230,.3)',edge:'rgba(120,140,220,0)',r:32},
     ground:[[0,'#1b1c28'],[0.3,'#141420'],[1,'#0a0a12']], edge:'#5a6ac0', edge2:'rgba(120,150,255,.25)',
     puddle:'rgba(120,150,255,.14)' },
   { id:'factory', name:'ЗАВОД TECHFRESH', sub:'Сердце корпорации', kind:'factory',
-    waves:6, climax:'prime',
+    waves:10, climax:'prime',
     sky:[[0,'#1a0606'],[0.45,'#2a0c0a'],[0.8,'#3a1410'],[1,'#4a1a12']],
     orb:{x:0.7,col:'rgba(255,120,80,.4)',core:'rgba(255,160,90,.85)',mid:'rgba(255,90,40,.25)',edge:'rgba(255,60,30,0)',r:34},
     ground:[[0,'#241410'],[0.3,'#180c0a'],[1,'#0c0605']], edge:'#c0603a', edge2:'rgba(255,120,60,.22)',
@@ -28,19 +28,121 @@ const ZONES=[
 ];
 function curZone(){ return ZONES[clamp(game.zone||0,0,ZONES.length-1)]; }
 
-// ------------------------------ Мир ----------------------------------
-const WORLD={ w:2600, groundY:0, platforms:[] };
+// ------------------------------ Мир (сегментный уровень) -------------
+const WORLD={ w:2600, groundY:0, platforms:[], segments:[], gates:[], secrets:[], frontier:0 };
+// Шаблоны расстановки платформ на сегмент: [долягоризонтали, высотаНадЗемлёй, ширина, секрет?]
+const PLATFORM_TEMPLATES={
+  dump:[
+    [[0.30,150,180],[0.62,240,150],[0.82,150,170]],
+    [[0.25,120,160],[0.52,250,140,true],[0.75,160,180]],
+    [[0.40,200,200],[0.72,320,130,true]],
+    [[0.22,160,150],[0.48,150,150],[0.74,150,150]],
+  ],
+  sewer:[
+    [[0.28,140,160],[0.55,230,150],[0.80,150,160]],
+    [[0.34,260,140,true],[0.62,150,170]],
+    [[0.22,150,150],[0.50,150,150],[0.80,250,150,true]],
+    [[0.30,180,180],[0.66,300,120]],
+  ],
+  city:[
+    [[0.30,180,170],[0.60,150,180],[0.84,270,120,true]],
+    [[0.25,150,150],[0.52,240,150],[0.78,150,160]],
+    [[0.40,300,140,true],[0.70,160,180]],
+    [[0.20,150,160],[0.55,150,160],[0.82,150,160]],
+  ],
+  factory:[
+    [[0.30,160,170],[0.58,250,150],[0.82,340,120,true]],
+    [[0.24,150,150],[0.50,150,150],[0.76,150,150]],
+    [[0.36,220,160],[0.68,320,130,true]],
+    [[0.28,180,180],[0.62,150,170]],
+  ],
+};
 function buildWorld(){
   WORLD.groundY = VH - Math.max(70, VH*0.12);
-  WORLD.w = Math.max(2200, VW*2.2);
-  const g=WORLD.groundY;
-  WORLD.platforms=[
-    {x:0,y:g,w:WORLD.w,h:VH-g+60,ground:true},                  // земля
-    {x:WORLD.w*0.18,y:g-150,w:200,h:22},
-    {x:WORLD.w*0.40,y:g-240,w:170,h:22},
-    {x:WORLD.w*0.62,y:g-150,w:210,h:22},
-    {x:WORLD.w*0.80,y:g-260,w:160,h:22},
-  ];
+  const g=WORLD.groundY, Z=curZone();
+  const waves=Z.waves||10;
+  const segW=Math.max(920, VW*1.15);
+  const segCount=waves+1;               // + арена босса в конце
+  WORLD.w=segW*segCount;
+  WORLD.segments=[]; WORLD.gates=[]; WORLD.secrets=[]; WORLD.frontier=0;
+  WORLD.platforms=[{x:0,y:g,w:WORLD.w,h:VH-g+60,ground:true}]; // сплошная земля
+  const tset=PLATFORM_TEMPLATES[Z.kind]||PLATFORM_TEMPLATES.dump;
+  for(let s=0;s<segCount;s++){
+    const x0=s*segW, x1=x0+segW;
+    WORLD.segments.push({x0,x1});
+    if(s<waves){
+      const tpl=tset[(s*3+ (s*7%5)) % tset.length];
+      for(const p of tpl){
+        const px=x0 + p[0]*segW, py=g - p[1];
+        WORLD.platforms.push({x:px,y:py,w:p[2],h:22});
+        if(p[3]) WORLD.secrets.push({x:px+p[2]*0.5, y:py-14, taken:false});
+      }
+      WORLD.gates.push({x:x1-28, seg:s, open:0}); // ворота в конце каждого волнового сегмента
+    }
+  }
+}
+// правый предел доступной зоны (до первых закрытых ворот) — для камеры
+function accessRightX(){
+  for(const gt of WORLD.gates){ if(gt.open<0.9) return gt.x+50; }
+  return WORLD.w;
+}
+// закрытые ворота блокируют сущность по горизонтали
+function blockByGates(e){
+  for(const gt of WORLD.gates){
+    if(gt.open>=0.9) continue;
+    if(e.x > gt.x - e.w*0.5){ e.x = gt.x - e.w*0.5; if(e.vx>0) e.vx=0; }
+    break; // только первые закрытые ворота впереди
+  }
+}
+function openGate(seg){ const gt=WORLD.gates[seg]; if(gt && gt.open<1) gt._opening=true; }
+function updateGates(dt){
+  for(const gt of WORLD.gates){ if(gt._opening && gt.open<1){ gt.open=Math.min(1,gt.open+dt*1.4);
+    if(gt.open>=1) gt._opening=false;
+    if(Math.random()<0.4) spawnParticle({x:gt.x+rand(-14,14),y:WORLD.groundY-rand(0,160),vx:rand(-30,30),vy:-rand(20,60),life:0.4,max:0.4,size:rand(2,4),color:pick(['#ffd27a','#caa15f']),add:true});
+  } }
+}
+function drawGates(){
+  const Z=curZone(), g=WORLD.groundY;
+  const col = Z.kind==='sewer'?'#2a4a40' : Z.kind==='city'?'#2a3050' : Z.kind==='factory'?'#3a2418' : '#3a2a1e';
+  const edge = Z.kind==='sewer'?'#5fe0b0' : Z.kind==='city'?'#6a7ad0' : Z.kind==='factory'?'#e8b53a' : '#caa15f';
+  for(const gt of WORLD.gates){
+    if(gt.open>=1) continue;
+    const gh=Math.min(220, VH*0.5), lift=gt.open*gh;
+    const x=gt.x-20, top=g-gh+lift;
+    ctx.fillStyle=col; roundRect(x,top,40,gh-lift,4); ctx.fill();
+    // ребра/створка
+    ctx.fillStyle='rgba(0,0,0,.35)'; for(let yy=top+8; yy<g-lift; yy+=18) ctx.fillRect(x+3,yy,34,4);
+    ctx.fillStyle=edge; ctx.fillRect(x,top,40,4);
+    // индикатор «закрыто»
+    if(gt.open<0.05){ ctx.fillStyle=edge; ctx.font="900 12px 'Russo One',sans-serif"; ctx.textAlign='center';
+      ctx.fillStyle='rgba(0,0,0,0)'; }
+  }
+  ctx.textAlign='left';
+}
+function updateSecrets(dt){
+  for(const sc of WORLD.secrets){ if(sc.taken) continue;
+    if(brad.alive && dist2(brad.x,brad.y-brad.h*0.4,sc.x,sc.y)<(brad.w*0.8)**2){
+      sc.taken=true;
+      const crumbs=randi(4,7); for(let i=0;i<crumbs;i++) spawnCrumb(sc.x+rand(-14,14), sc.y);
+      const heal=Math.round(brad.maxhp*0.15); brad.hp=Math.min(brad.maxhp, brad.hp+heal);
+      floatText(sc.x, sc.y-10, 'ТАЙНИК!', {color:'#ffd27a',size:16,font:'display',vy:-30,life:1.0});
+      Audio_.tone(700,0.1,'sine',0.14,1050); Audio_.tone(950,0.12,'sine',0.12,1400,0.05);
+      burst(sc.x,sc.y,16,{colors:['#ffd27a','#fff','#9fe06a'],smax:200,szmax:4,lmax:0.5});
+    }
+  }
+}
+function drawSecrets(){
+  for(const sc of WORLD.secrets){ if(sc.taken) continue;
+    ctx.save(); ctx.translate(sc.x, sc.y+Math.sin(performance.now()/500)*2);
+    ctx.globalCompositeOperation='lighter'; ctx.fillStyle='rgba(255,210,122,.35)';
+    ctx.beginPath(); ctx.arc(0,0,15,0,TAU); ctx.fill(); ctx.globalCompositeOperation='source-over';
+    // сундук-ящик
+    ctx.fillStyle='#7a5a2a'; roundRect(-11,-9,22,18,3); ctx.fill();
+    ctx.fillStyle='#a8813f'; roundRect(-11,-9,22,7,3); ctx.fill();
+    ctx.fillStyle='#ffd27a'; ctx.fillRect(-2,-9,4,18);
+    ctx.fillStyle='#5a4020'; ctx.fillRect(-3,-2,6,4);
+    ctx.restore();
+  }
 }
 
 // ------------------------------ Частицы ------------------------------
@@ -206,35 +308,33 @@ function drawGround(){
   ctx.fillStyle=Z.edge; ctx.fillRect(0,g,VW,3);
   ctx.fillStyle=Z.edge2; ctx.fillRect(0,g+3,VW,2);
   ctx.save(); ctx.translate(-Cam.x,0);
+  // рисуем только видимый диапазон (мир очень широкий)
+  const vL=Cam.x-60, vR=Cam.x+VW+60;
+  const from=(step,o)=>Math.floor((vL-(o||0))/step)*step+(o||0);
   if(Z.kind==='city'){
-    // дорожная разметка + люки
-    for(let x=0;x<WORLD.w;x+=120){ ctx.fillStyle='rgba(255,210,90,.18)'; ctx.fillRect(x+20,g+24,46,5); }
-    for(let x=60;x<WORLD.w;x+=300){ ctx.fillStyle='rgba(120,140,200,.18)'; ctx.beginPath(); ctx.arc(x,g+30,12,0,TAU); ctx.fill(); }
+    for(let x=from(120,20);x<vR;x+=120){ ctx.fillStyle='rgba(255,210,90,.18)'; ctx.fillRect(x,g+24,46,5); }
+    for(let x=from(300,60);x<vR;x+=300){ ctx.fillStyle='rgba(120,140,200,.18)'; ctx.beginPath(); ctx.arc(x,g+30,12,0,TAU); ctx.fill(); }
   } else if(Z.kind==='sewer'){
-    // водяной жёлоб + решётки-стоки
-    for(let x=0;x<WORLD.w;x+=180){ ctx.fillStyle='rgba(120,255,200,.09)'; ctx.fillRect(x+20,g+22,84,4); }
-    for(let x=50;x<WORLD.w;x+=240){ ctx.fillStyle='rgba(150,200,180,.18)';
+    for(let x=from(180,20);x<vR;x+=180){ ctx.fillStyle='rgba(120,255,200,.09)'; ctx.fillRect(x,g+22,84,4); }
+    for(let x=from(240,50);x<vR;x+=240){ ctx.fillStyle='rgba(150,200,180,.18)';
       for(let k=0;k<6;k++) ctx.fillRect(x+k*9, g+30, 4, 12); }
   } else if(Z.kind==='factory'){
-    // движущаяся конвейерная лента + ролики + предупреждающие шевроны
     const off=(performance.now()/1000*46)%44;
     ctx.fillStyle='rgba(255,180,60,.13)';
-    for(let x=-44;x<WORLD.w+44;x+=44){ const bx=x+off;
+    for(let x=from(44,0)-44;x<vR;x+=44){ const bx=x+off;
       ctx.beginPath(); ctx.moveTo(bx,g+6); ctx.lineTo(bx+20,g+6); ctx.lineTo(bx+8,g+16); ctx.lineTo(bx-12,g+16); ctx.closePath(); ctx.fill(); }
-    // ролики конвейера (вращаются)
-    for(let x=0;x<WORLD.w;x+=54){
+    for(let x=from(54,0);x<vR;x+=54){
       ctx.fillStyle='rgba(120,70,50,.55)'; ctx.beginPath(); ctx.arc(x, g+30, 7, 0, TAU); ctx.fill();
       ctx.save(); ctx.translate(x,g+30); ctx.rotate(performance.now()/280); ctx.fillStyle='#2a1712'; ctx.fillRect(-6,-1.2,12,2.4); ctx.restore();
     }
   } else {
-    for(let x=0;x<WORLD.w;x+=90){
+    for(let x=from(90,0);x<vR;x+=90){
       ctx.fillStyle='rgba(0,0,0,.25)'; ctx.fillRect(x+ (x*7%40), g+18+ (x*3%20), 30,6);
       ctx.fillStyle='#5a4530'; ctx.beginPath(); ctx.arc(x+45, g+12, 2.5,0,TAU); ctx.fill();
     }
   }
-  // лужи (отражают свет зоны)
-  for(let i=0;i<6;i++){ const px=180+i*420 + (i*53%120);
-    ctx.fillStyle=Z.puddle; ctx.beginPath(); ctx.ellipse(px,g+30,46,7,0,0,TAU); ctx.fill(); }
+  // лужи (в видимом диапазоне)
+  for(let x=from(420,180);x<vR;x+=420){ ctx.fillStyle=Z.puddle; ctx.beginPath(); ctx.ellipse(x,g+30,46,7,0,0,TAU); ctx.fill(); }
   ctx.restore();
 }
 function drawPlatforms(){

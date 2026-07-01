@@ -36,7 +36,9 @@ const Cam={x:0,y:0, shake:0, shakeT:0,
   update(dt,target){
     // целимся чуть впереди по направлению взгляда (шире на широких экранах)
     const look = target.facing*Math.min(230, VW*0.16);
-    const tx = clamp(target.x+look - VW/2, 0, Math.max(0,WORLD.w-VW));
+    const arx = (typeof accessRightX==='function')? accessRightX() : WORLD.w;
+    const rightBound = Math.max(0, Math.min(WORLD.w-VW, arx - VW*0.12));
+    const tx = clamp(target.x+look - VW/2, 0, rightBound);
     const ty = clamp(target.y - VH*0.62, WORLD.groundY-VH+40, 0);
     this.x = lerp(this.x, tx, 1-Math.pow(0.001,dt));
     this.y = lerp(this.y, isFinite(ty)?ty:0, 1-Math.pow(0.002,dt));

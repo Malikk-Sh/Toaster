@@ -102,6 +102,8 @@ function update(dt){
   updateFloaters(dt);
   updateBanner(dt);
   updateSpeeches(dt);
+  updateGates(dt);
+  updateSecrets(dt);
   Spawner.update(dt);
   Cam.update(dt, brad);
   Input._consume();
@@ -120,9 +122,11 @@ function render(t){
   if(inWorld){
     drawPlatforms();
     ctx.save(); ctx.translate(-Cam.x, 0);
+    drawGates();
     drawIceWalls();
     drawHazards();
     drawBoss();
+    drawSecrets();
     drawCrumbs();
     drawPickups();
     for(const e of enemies) drawEnemy(e);
