@@ -191,58 +191,48 @@ const brad={
       ctx.globalCompositeOperation='source-over';
     }
 
-    const W=this.w,H=this.h;
-    const bodyTop = (this.glow>0.2? `rgb(${217+ (255-217)*this.glow|0},${221-90*this.glow|0},${227-150*this.glow|0})` : '#eef1f5');
-    const bodyMid = '#c5ccd4';
-    // корпус (хромированный тостер)
-    ctx.fillStyle=bodyMid; roundRect(-W/2,-H*0.5,W,H*0.86,10); ctx.fill();
-    // верхний блик
-    const grd=ctx.createLinearGradient(0,-H*0.5,0,H*0.2);
-    grd.addColorStop(0,bodyTop); grd.addColorStop(0.5,bodyMid); grd.addColorStop(1,'#9aa4ad');
-    ctx.fillStyle=grd; roundRect(-W/2,-H*0.5,W,H*0.7,10); ctx.fill();
-    // блик-полоса + тонкий второй отблеск (фактура хрома)
-    ctx.fillStyle='rgba(255,255,255,.5)'; roundRect(-W*0.38,-H*0.42,W*0.18,H*0.5,4); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.22)'; roundRect(W*0.02,-H*0.4,W*0.05,H*0.55,3); ctx.fill();
-    // заклёпки по углам корпуса
-    ctx.fillStyle='rgba(120,132,144,.9)';
-    for(const rx of [-W*0.42, W*0.36]) for(const ry of [-H*0.42, H*0.18]){ ctx.beginPath(); ctx.arc(rx,ry,2.1,0,TAU); ctx.fill();
-      ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(rx-0.6,ry-0.6,0.8,0,TAU); ctx.fill(); ctx.fillStyle='rgba(120,132,144,.9)'; }
-    // две щели сверху (с тёмной глубиной)
-    ctx.fillStyle='#1a140e'; roundRect(-W*0.3,-H*0.5,W*0.22,8,2); ctx.fill(); roundRect(W*0.08,-H*0.5,W*0.22,8,2); ctx.fill();
-    ctx.fillStyle=this.glow>0.3?`rgba(255,140,30,${this.glow*0.7})`:'rgba(0,0,0,0)';
-    roundRect(-W*0.3,-H*0.5,W*0.22,4,2); ctx.fill(); roundRect(W*0.08,-H*0.5,W*0.22,4,2); ctx.fill();
-    // подвижный рычаг сбоку — опускается при зарядке, отскакивает при выстреле
-    const leverDown=(this.charging? this.charge : 0)*H*0.2;
-    ctx.strokeStyle='#7a5e34'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(W*0.45,-H*0.24+leverDown); ctx.lineTo(W*0.45,H*0.12); ctx.stroke();
-    ctx.fillStyle='#8a6a3a'; roundRect(W*0.42,-H*0.24+leverDown,6,H*0.34,3); ctx.fill();
-    ctx.fillStyle='#c49a54'; ctx.beginPath(); ctx.arc(W*0.45,-H*0.24+leverDown,5,0,TAU); ctx.fill();
-    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(W*0.435,-H*0.26+leverDown,1.6,0,TAU); ctx.fill();
-    // ножки
-    ctx.fillStyle='#6b5847'; roundRect(-W*0.34,H*0.32,8,8,2); ctx.fill(); roundRect(W*0.26,H*0.32,8,8,2); ctx.fill();
-    // ----- лицо (живые глаза в корпусе) -----
-    const blink = (performance.now()%3600)<120 ? 0.15 : 1;
-    ctx.save(); // глаза/лицо наследуют разворот корпуса
-    drawEye(W*0.02, -H*0.05, 6, blink);
-    drawEye(W*0.24, -H*0.05, 6, blink);
-    // брови (упрямый настрой, сильнее при заряде)
-    ctx.strokeStyle= this.glow>0.4?'#ff8a1e':'#3a2a1e'; ctx.lineWidth=2.4; ctx.lineCap='round';
-    ctx.beginPath(); ctx.moveTo(W*0.02-6,-H*0.16); ctx.lineTo(W*0.02+6,-H*0.12); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(W*0.24-6,-H*0.12); ctx.lineTo(W*0.24+6,-H*0.16); ctx.stroke();
-    // упрямый рот (оскал при заряде)
-    ctx.strokeStyle='#2a1c12'; ctx.lineWidth=2.2; ctx.lineCap='round';
-    ctx.beginPath();
-    if(this.glow>0.4){ ctx.moveTo(W*0.04,H*0.1); ctx.lineTo(W*0.22,H*0.1); ctx.moveTo(W*0.09,H*0.06); ctx.lineTo(W*0.09,H*0.14); ctx.moveTo(W*0.17,H*0.06); ctx.lineTo(W*0.17,H*0.14); }
-    else { ctx.moveTo(W*0.05,H*0.08); ctx.quadraticCurveTo(W*0.13,H*0.13,W*0.21,H*0.08); }
-    ctx.stroke();
+    // корпус + лицо тостера (общий с прологом рисунок)
+    drawToasterFigure(this.w, this.h, this.glow, (this.charging?this.charge:0)*this.h*0.2,
+      (performance.now()%3600)<120?0.15:1);
     ctx.restore();
-    ctx.restore();
-
-    function drawEye(x,y,r,bl){
-      ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x,y,r,r*bl,0,0,TAU); ctx.fill();
-      ctx.fillStyle='#2a2a2a'; ctx.beginPath(); ctx.arc(x+1.5,y,r*0.55*bl+0.5,0,TAU); ctx.fill();
-    }
   }
 };
+// Единый рисунок тостера (Брэда): корпус, хром, заклёпки, щели, рычаг, лицо.
+// Рисуется в текущей системе координат (центр в 0,0; масштаб/разворот — на вызывающем).
+// Используется и в игре (brad.draw), и в прологе (катсцена) — один дизайн.
+function drawToasterFigure(W,H,glow,leverDown,blink){
+  glow=glow||0; leverDown=leverDown||0; if(blink==null) blink=1;
+  const bodyTop = (glow>0.2? `rgb(${217+(255-217)*glow|0},${221-90*glow|0},${227-150*glow|0})` : '#eef1f5');
+  const bodyMid = '#c5ccd4';
+  ctx.fillStyle=bodyMid; roundRect(-W/2,-H*0.5,W,H*0.86,10); ctx.fill();
+  const grd=ctx.createLinearGradient(0,-H*0.5,0,H*0.2);
+  grd.addColorStop(0,bodyTop); grd.addColorStop(0.5,bodyMid); grd.addColorStop(1,'#9aa4ad');
+  ctx.fillStyle=grd; roundRect(-W/2,-H*0.5,W,H*0.7,10); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)'; roundRect(-W*0.38,-H*0.42,W*0.18,H*0.5,4); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.22)'; roundRect(W*0.02,-H*0.4,W*0.05,H*0.55,3); ctx.fill();
+  ctx.fillStyle='rgba(120,132,144,.9)';
+  for(const rx of [-W*0.42, W*0.36]) for(const ry of [-H*0.42, H*0.18]){ ctx.beginPath(); ctx.arc(rx,ry,2.1,0,TAU); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(rx-0.6,ry-0.6,0.8,0,TAU); ctx.fill(); ctx.fillStyle='rgba(120,132,144,.9)'; }
+  ctx.fillStyle='#1a140e'; roundRect(-W*0.3,-H*0.5,W*0.22,8,2); ctx.fill(); roundRect(W*0.08,-H*0.5,W*0.22,8,2); ctx.fill();
+  ctx.fillStyle=glow>0.3?`rgba(255,140,30,${glow*0.7})`:'rgba(0,0,0,0)';
+  roundRect(-W*0.3,-H*0.5,W*0.22,4,2); ctx.fill(); roundRect(W*0.08,-H*0.5,W*0.22,4,2); ctx.fill();
+  ctx.strokeStyle='#7a5e34'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(W*0.45,-H*0.24+leverDown); ctx.lineTo(W*0.45,H*0.12); ctx.stroke();
+  ctx.fillStyle='#8a6a3a'; roundRect(W*0.42,-H*0.24+leverDown,6,H*0.34,3); ctx.fill();
+  ctx.fillStyle='#c49a54'; ctx.beginPath(); ctx.arc(W*0.45,-H*0.24+leverDown,5,0,TAU); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,.5)'; ctx.beginPath(); ctx.arc(W*0.435,-H*0.26+leverDown,1.6,0,TAU); ctx.fill();
+  ctx.fillStyle='#6b5847'; roundRect(-W*0.34,H*0.32,8,8,2); ctx.fill(); roundRect(W*0.26,H*0.32,8,8,2); ctx.fill();
+  // лицо
+  const eye=(x,y,r,bl)=>{ ctx.fillStyle='#fff'; ctx.beginPath(); ctx.ellipse(x,y,r,r*bl,0,0,TAU); ctx.fill();
+    ctx.fillStyle= glow>0.5?'#ff6a1e':'#2a2a2a'; ctx.beginPath(); ctx.arc(x+1.5,y,r*0.55*bl+0.5,0,TAU); ctx.fill(); };
+  eye(W*0.02,-H*0.05,6,blink); eye(W*0.24,-H*0.05,6,blink);
+  ctx.strokeStyle= glow>0.4?'#ff8a1e':'#3a2a1e'; ctx.lineWidth=2.4; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(W*0.02-6,-H*0.16); ctx.lineTo(W*0.02+6,-H*0.12); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(W*0.24-6,-H*0.12); ctx.lineTo(W*0.24+6,-H*0.16); ctx.stroke();
+  ctx.strokeStyle='#2a1c12'; ctx.lineWidth=2.2; ctx.lineCap='round'; ctx.beginPath();
+  if(glow>0.4){ ctx.moveTo(W*0.04,H*0.1); ctx.lineTo(W*0.22,H*0.1); ctx.moveTo(W*0.09,H*0.06); ctx.lineTo(W*0.09,H*0.14); ctx.moveTo(W*0.17,H*0.06); ctx.lineTo(W*0.17,H*0.14); }
+  else { ctx.moveTo(W*0.05,H*0.08); ctx.quadraticCurveTo(W*0.13,H*0.13,W*0.21,H*0.08); }
+  ctx.stroke();
+}
 function nearestEnemy(x,y,maxd){
   let best=null,bd=maxd*maxd;
   for(const e of enemies){ if(e.dead) continue;

@@ -55,8 +55,7 @@ document.querySelectorAll('.tbtn').forEach(el=>bindTouch(el,el.dataset.act));
 // определяем тип устройства
 const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints>0) || window.matchMedia('(pointer:coarse)').matches;
 document.body.classList.add(isTouch?'touch':'desktop');
-document.getElementById('start-hint').innerHTML = isTouch
-  ? 'Двигайся <b>◀ ▶</b>, прыгай и уворачивайся <b>рывком</b>. Жми <b>ЖАР</b> для быстрого тоста, держи — для мощного заряженного.'
-  : '<b>A/D</b> — ходьба · <b>W</b> — прыжок · <b>Shift</b> — рывок · <b>J / ЛКМ</b> — выстрел (тап — слабый, зажать — сильный) · <b>Esc</b> — пауза';
+// Инструкции управления в меню убраны — подсказки показываются только в игре
+// (#kbchip на десктопе / тач-пад на сенсоре по классу body.ingame).
 
 // ------------------------------ Камера -------------------------------
