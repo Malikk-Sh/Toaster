@@ -111,14 +111,18 @@ function update(dt){
   syncTouchUI();
 }
 function render(t){
+  // тач-управление и подсказки клавиш видны только в бою (класс body.ingame)
+  const ig = game.state==='playing';
+  if(document.body.classList.contains('ingame')!==ig) document.body.classList.toggle('ingame', ig);
   ctx.setTransform(DPR,0,0,DPR,0,0);
   ctx.clearRect(0,0,VW,VH);
-  // фон (экранные коорд.)
+  // фон (экранные коорд., без вертикального сдвига — небо заполняет весь экран)
   drawBackground(game.time);
-  drawGround();
   const inWorld = game.state!=='menu' && game.state!=='shop';
-  // мир (смещаем тряской камеры)
+  // мир (смещаем тряской камеры + вертикальной камерой Cam.y)
   ctx.save(); ctx.translate(-Cam.ox(), -Cam.oy());
+  ctx.save(); ctx.translate(0, -Cam.y); // вертикальная камера: земля и мир едут вместе
+  drawGround();
   if(inWorld){
     drawPlatforms();
     ctx.save(); ctx.translate(-Cam.x, 0);
@@ -138,6 +142,7 @@ function render(t){
     drawSpeeches();
     ctx.restore();
   }
+  ctx.restore(); // конец вертикальной камеры
   ctx.restore();
   // HUD
   if(inWorld){ drawHUD(); drawBanner(); }
@@ -194,7 +199,8 @@ document.getElementById('btn-restart-p').addEventListener('click',startGame);
 document.getElementById('btn-win-restart').addEventListener('click',startGame);
 document.getElementById('btn-resume').addEventListener('click',togglePause);
 document.getElementById('btn-pause').addEventListener('click',togglePause);
-document.getElementById('btn-shop').addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); openShop('menu'); });
+// кнопка «Мастерская» в меню убрана — магазин открывается между волнами (btn-shop может отсутствовать)
+{ const bs=document.getElementById('btn-shop'); if(bs) bs.addEventListener('click',()=>{ Audio_.init(); Audio_.resume(); openShop('menu'); }); }
 document.getElementById('btn-shop-go').addEventListener('click',closeShop);
 document.getElementById('btn-mute').addEventListener('click',e=>{
   Audio_.muted=!Audio_.muted; e.currentTarget.textContent=Audio_.muted?'🔇':'🔊';

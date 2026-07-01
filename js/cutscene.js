@@ -7,26 +7,12 @@
    ===================================================================== */
 
 // ---- мелкие помощники рисования ----
+// Тостер как в игре: используем общий drawToasterFigure (единый дизайн).
 function csToaster(x,y,s,glow){
   ctx.save(); ctx.translate(x,y); ctx.scale(s,s);
-  // корпус-хром
-  ctx.fillStyle='#c5ccd4'; roundRect(-24,-22,48,34,8); ctx.fill();
-  const gr=ctx.createLinearGradient(0,-22,0,6); gr.addColorStop(0,'#eef1f5'); gr.addColorStop(1,'#9aa4ad');
-  ctx.fillStyle=gr; roundRect(-24,-22,48,26,8); ctx.fill();
-  ctx.fillStyle='rgba(255,255,255,.5)'; roundRect(-19,-18,7,20,3); ctx.fill();
-  ctx.fillStyle='#1a140e'; roundRect(-15,-22,12,4,2); ctx.fill(); roundRect(3,-22,12,4,2); ctx.fill();
-  // рычаг
-  ctx.fillStyle='#8a6a3a'; roundRect(20,-8,4,16,2); ctx.fill();
-  ctx.fillStyle='#c49a54'; ctx.beginPath(); ctx.arc(22,-8,3,0,TAU); ctx.fill();
-  // ножки
-  ctx.fillStyle='#6b5847'; roundRect(-16,12,5,5,2); ctx.fill(); roundRect(11,12,5,5,2); ctx.fill();
-  // глаза (загораются с glow)
-  const er = glow>0.02;
-  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-4,-4,3.4,0,TAU); ctx.arc(8,-4,3.4,0,TAU); ctx.fill();
-  if(er){ ctx.save(); ctx.globalCompositeOperation='lighter'; ctx.fillStyle=`rgba(255,120,40,${glow})`;
-    ctx.beginPath(); ctx.arc(-4,-4,5*glow+2,0,TAU); ctx.arc(8,-4,5*glow+2,0,TAU); ctx.fill(); ctx.restore(); }
-  ctx.fillStyle = glow>0.4? '#ff6a1e' : '#2a2a2a';
-  ctx.beginPath(); ctx.arc(-3.5,-4,1.7,0,TAU); ctx.arc(8.5,-4,1.7,0,TAU); ctx.fill();
+  if(glow>0.02){ ctx.save(); ctx.globalCompositeOperation='lighter';
+    ctx.fillStyle=`rgba(255,140,40,${0.4*glow})`; ctx.beginPath(); ctx.arc(0,-6,40,0,TAU); ctx.fill(); ctx.restore(); }
+  drawToasterFigure(46, 54, glow, 0, 1);
   ctx.restore();
 }
 function csHead(x,y,r,col){ ctx.fillStyle=col; ctx.beginPath(); ctx.arc(x,y,r,0,TAU);
@@ -149,36 +135,43 @@ const Cutscene={
       } },
   ],
   start(onDone){
-    this.onDone=onDone; this.idx=0; this.sceneT=0; this.t=0; this.embers.length=0; this.active=true;
+    this.onDone=onDone; this.idx=0; this.sceneT=0; this.t=0; this.holdT=0; this.embers.length=0; this.active=true;
     Audio_.init(); Audio_.resume();
     hideAll();
     game.state='cutscene';
-    const b=document.getElementById('btn-skip-cut'); if(b) b.classList.remove('hidden');
+    const b=document.getElementById('btn-skip-cut'); if(b) b.style.display='block';
     document.getElementById('btn-pause').style.display='none';
     try{ Music.start('zone'); }catch(_){}
     Audio_.tone(196,0.6,'sine',0.12); Audio_.tone(294,0.6,'sine',0.10,null,0.1);
   },
   finish(){
     if(!this.active) return; this.active=false;
-    const b=document.getElementById('btn-skip-cut'); if(b) b.classList.add('hidden');
+    const b=document.getElementById('btn-skip-cut'); if(b) b.style.display='none';
     const cb=this.onDone; this.onDone=null;
     if(cb) cb();
   },
   skip(){ if(this.active){ Audio_.tone(330,0.12,'square',0.08); this.finish(); } },
+  // ручная листалка: доиграть кадр, затем перейти к следующему (последний → в бой)
+  advance(){
+    if(!this.active) return;
+    const sc=this.scenes[this.idx];
+    if(this.sceneT < sc.dur){ this.sceneT = sc.dur; this.holdT=0; return; } // сначала домотать анимацию
+    Audio_.tone(300,0.1,'square',0.06);
+    this.idx++; this.sceneT=0; this.holdT=0;
+    if(this.idx>=this.scenes.length){ this.finish(); return; }
+    Audio_.tone(220+this.idx*40,0.4,'sine',0.10);
+  },
   update(dt){
     if(!this.active) return;
     this.t+=dt; this.sceneT+=dt;
+    const sc=this.scenes[this.idx];
+    // анимация кадра доиграна → копим паузу до появления подсказки
+    this.holdT = (this.sceneT>=sc.dur) ? (this.holdT||0)+dt : 0;
     // угли в финальной сцене
     if(this.idx===this.scenes.length-1){
       if(Math.random()<0.6) this.embers.push({x:VW*0.5+rand(-70,70),y:VH*0.60,vx:rand(-20,20),vy:-rand(40,110),
         life:1,size:rand(1.5,3.5),col:pick(['#ff8a1e','#ffd23f','#ff5a1e'])});
       for(let i=this.embers.length-1;i>=0;i--){ const e=this.embers[i]; e.x+=e.vx*dt; e.y+=e.vy*dt; e.vx*=(1-dt); e.life-=dt*0.5; if(e.life<=0) this.embers.splice(i,1); }
-    }
-    const sc=this.scenes[this.idx];
-    if(this.sceneT>=sc.dur){
-      this.idx++; this.sceneT=0;
-      if(this.idx>=this.scenes.length){ this.finish(); return; }
-      Audio_.tone(220+this.idx*40,0.4,'sine',0.10);
     }
   },
   render(ts){
@@ -186,29 +179,40 @@ const Cutscene={
     ctx.setTransform(DPR,0,0,DPR,0,0);
     ctx.clearRect(0,0,VW,VH);
     const sc=this.scenes[this.idx]; const p=clamp(this.sceneT/sc.dur,0,1);
-    // сама сцена
+    // сама сцена (анимация доигрывает до p=1 и держится — ручная листалка)
     sc.draw(p);
-    // кроссфейд через чёрный на входе/выходе сцены
-    const fadeIn=clamp(this.sceneT/0.5,0,1), fadeOut=clamp((sc.dur-this.sceneT)/0.5,0,1);
-    const dark=1-Math.min(fadeIn,fadeOut);
-    if(dark>0){ ctx.fillStyle=`rgba(0,0,0,${dark.toFixed(3)})`; ctx.fillRect(0,0,VW,VH); }
+    // фейд-ин кадра из чёрного (без авто фейд-аута)
+    const fadeIn=clamp(this.sceneT/0.5,0,1);
+    if(fadeIn<1){ ctx.fillStyle=`rgba(0,0,0,${(1-fadeIn).toFixed(3)})`; ctx.fillRect(0,0,VW,VH); }
     // леттербокс-полосы
     const bar=VH*0.11;
     ctx.fillStyle='#000'; ctx.fillRect(0,0,VW,bar); ctx.fillRect(0,VH-bar,VW,bar);
     // субтитр
-    const subA=Math.min(fadeIn,fadeOut);
-    if(subA>0 && sc.sub){
-      ctx.save(); ctx.globalAlpha=subA; ctx.textAlign='center';
+    if(sc.sub){
+      ctx.save(); ctx.globalAlpha=fadeIn; ctx.textAlign='center';
       ctx.fillStyle='#f4e6c8'; ctx.font="500 22px 'Rubik',sans-serif";
-      csWrap(sc.sub, VW*0.5, VH-bar-46, VW*0.8, 30);
+      csWrap(sc.sub, VW*0.5, VH-bar-58, VW*0.82, 30);
       ctx.restore(); ctx.textAlign='left';
     }
     // индикатор прогресса сцен
     const n=this.scenes.length, dotW=10, gap=8, totW=n*dotW+(n-1)*gap, x0=VW*0.5-totW/2, y0=VH-bar*0.5;
     for(let i=0;i<n;i++){ ctx.fillStyle=i<=this.idx?'#ffd27a':'rgba(255,255,255,.25)';
       ctx.beginPath(); ctx.arc(x0+i*(dotW+gap)+dotW*0.5,y0,dotW*0.35,0,TAU); ctx.fill(); }
+    // подсказка «нажмите, чтобы продолжить» — через ~2с после конца анимации кадра
+    if((this.holdT||0) > 2){
+      const pulse=0.55+0.45*Math.sin(this.t*4);
+      ctx.save(); ctx.textAlign='center'; ctx.globalAlpha=pulse;
+      ctx.fillStyle='#ffd27a'; ctx.font="700 18px 'Rubik',sans-serif";
+      ctx.fillText('Нажмите на экран, чтобы продолжить ▸', VW*0.5, VH-bar-20);
+      ctx.restore(); ctx.textAlign='left'; ctx.globalAlpha=1;
+    }
   },
 };
+// ручная листалка кадров: тап/клик по экрану или клавиша
+if(typeof canvas!=='undefined' && canvas){
+  canvas.addEventListener('pointerdown', ()=>{ if(Cutscene.active) Cutscene.advance(); });
+}
+window.addEventListener('keydown', (e)=>{ if(Cutscene.active && (e.code==='Space'||e.code==='Enter'||e.code==='ArrowRight')){ e.preventDefault(); Cutscene.advance(); } });
 // перенос строк субтитра по центру
 function csWrap(text,cx,y,maxW,lh){
   const words=text.split(' '); const lines=[]; let line='';

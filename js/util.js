@@ -50,7 +50,9 @@ const Cam={x:0,y:0, lookX:0, shake:0, shakeT:0,
     if(desired > camCenter + dz) tx += desired - (camCenter+dz);
     else if(desired < camCenter - dz) tx += desired - (camCenter-dz);
     tx = clamp(tx, 0, rightBound);
-    const ty = clamp(target.y - VH*0.62, WORLD.groundY-VH+40, 0);
+    // Верхняя граница 0 (не опускаемся под землю), нижняя — широкая, чтобы при
+    // подъёме открывались верхние платформы/маршруты метроидвании.
+    const ty = clamp(target.y - VH*0.62, -VH*0.5, 0);
     this.x = lerp(this.x, tx, 1-Math.pow(0.0025,dt));
     this.y = lerp(this.y, isFinite(ty)?ty:0, 1-Math.pow(0.002,dt));
     this.shake = Math.max(0, this.shake - dt*this.shake*6 - dt*8);
