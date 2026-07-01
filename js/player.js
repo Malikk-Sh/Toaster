@@ -4,7 +4,7 @@ const brad={
   facing:1, onGround:false, jumps:0, maxJumps:1,
   hp:100, maxhp:100, alive:true,
   iframes:0, dashing:false, dashT:0,
-  dashMax:1, dashLeft:1, dashRegen:0.9, dashRegenT:0, dashIframes:0.22,
+  dashMax:1, dashLeft:1, dashRegen:0.9, dashRegenT:0, dashIframes:0.22, dashSpeed:615,
   fireCD:0, tapCD:0.10, chargeRate:1.0,
   dashDmgMul:1, dashIgnite:false,
   charge:0, charging:false, chargeFx:0,
@@ -71,19 +71,19 @@ const brad={
     if(Input.dashEdge && this.dashLeft>0 && !this.dashing){
       this.dashing=true; this.dashT=0.2; this.dashLeft--; if(this.dashRegenT<=0) this.dashRegenT=this.dashRegen;
       this.iframes=Math.max(this.iframes, this.dashIframes||0.22);
-      this.vx=this.facing*820; this.vy=Math.min(this.vy,0);
+      this.vx=this.facing*this.dashSpeed; this.vy=Math.min(this.vy,0);
       Audio_.dash();
     }
-    if(this.dashing){ this.dashT-=dt; this.vx=this.facing*820;
+    if(this.dashing){ this.dashT-=dt; this.vx=this.facing*this.dashSpeed;
       spawnParticle({x:this.x-this.facing*10,y:this.y-this.h*0.4+rand(-12,12),vx:-this.facing*120,vy:rand(-20,20),
         life:0.25,max:0.25,size:rand(3,7),color:pick(['#ffd27a','#ff8a1e','#fff']),add:true});
       // таран врагов
       for(const e of enemies){ if(!e.dead && Math.abs(e.x-this.x)<(e.w+this.w)*0.5 && Math.abs(e.y-this.y)<(e.h+this.h)*0.5){
-        damageEnemy(e,Math.round(20*this.dmgMul*this.dashDmgMul),this.x,this.y,true); e.vx+=this.facing*200;
+        damageEnemy(e,Math.round(15*this.dmgMul*this.dashDmgMul),this.x,this.y,true); e.vx+=this.facing*200;
         if(this.dashIgnite) e.burn=Math.max(e.burn, 2.0*this.burnMul); } }
       // таран босса (рывок проходит сквозь, можно зайти за спину)
       if(boss.active && boss.state!=='intro' && boss.state!=='dying' && Math.abs(boss.x-this.x)<(boss.w*0.5+this.w*0.4) && Math.abs(boss.cy-this.y)<(boss.h*0.5+this.h*0.5)){
-        if(!this._dashHitBoss){ damageBoss(Math.round(16*this.dmgMul),this.x,this.y,true); this._dashHitBoss=true; }
+        if(!this._dashHitBoss){ damageBoss(Math.round(12*this.dmgMul),this.x,this.y,true); this._dashHitBoss=true; }
       }
       if(this.dashT<=0){ this.dashing=false; this._dashHitBoss=false; }
     }
@@ -149,7 +149,7 @@ const brad={
       fireToast(ox,oy,tgt,{charged:true, size:10+p*15, dmg:dm, aoe:p*36*this.chargeAoeMul, facing:this.facing, pierce:this.pierce});
       Audio_.release(p); Cam.addShake(4+p*7);
       burst(ox,oy,8+Math.round(p*8),{colors:['#ff6a00','#ffd23f'],smax:200,szmax:5});
-      this.fireCD=0.16;
+      this.fireCD=0.32;
     }
   },
   draw(){

@@ -136,7 +136,9 @@ function checkBossPhase(){ if(!boss.active) return; const prev=boss.phase; boss.
 function updateBoss(dt){ if(!boss.active) return; boss.def().update(dt); }
 function bossDie(){ if(!boss.active || boss.state==='dying') return; FX.addHitStop(0.12); FX.addSlow(0.9); boss.def().die(); }
 function bossContactCheck(){ if(!boss.active || boss.state==='intro' || boss.state==='dying') return; boss.def().contact(); }
-function drawBoss(){ if(!boss.active) return; boss.def().draw(); }
+function drawBoss(){ if(!boss.active) return; boss.def().draw();
+  if(boss.burn>0 && typeof drawFlames==='function') drawFlames(boss.x, boss.cy+boss.h*0.45, boss.w, clamp(boss.burn/2,0.35,1));
+}
 
 // общий блок: горение, intro, dying. Возвращает true, если кадр уже
 // полностью обработан (босс в intro/dying) и спец-логику запускать не нужно.
@@ -147,9 +149,13 @@ function bossCommonUpdate(dt){
   const d=boss.def();
   // горение (огонь — слабость техники)
   if(boss.burn>0){ boss.burn-=dt; boss.burnTick-=dt;
+    // непрерывные угольки по всему корпусу — насыщенное горение босса
+    for(let k=0;k<2;k++) if(Math.random()<0.8) spawnParticle({x:boss.x+rand(-boss.w*0.4,boss.w*0.4),y:boss.cy+rand(-boss.h*0.4,boss.h*0.45),
+      vx:rand(-24,24),vy:-rand(50,140),life:rand(0.35,0.7),max:0.7,size:rand(2,5),
+      color:pick(['#ff6a00','#ffd23f','#ff9a2e','#ffe0a0']),add:true,grav:-40});
     if(boss.burnTick<=0){ boss.burnTick=0.3; boss.hp-=Math.round(brad.burnDmg*1.4); boss.flash=Math.max(boss.flash,0.05);
-      spawnParticle({x:boss.x+rand(-boss.w*0.3,boss.w*0.3),y:boss.cy+rand(-boss.h*0.3,boss.h*0.3),vx:rand(-15,15),vy:rand(-60,-20),
-        life:rand(0.3,0.5),max:0.5,size:rand(3,6),color:pick(['#ff6a00','#ffd23f']),add:true,grav:-30});
+      for(let k=0;k<4;k++) spawnParticle({x:boss.x+rand(-boss.w*0.3,boss.w*0.3),y:boss.cy+rand(-boss.h*0.3,boss.h*0.3),vx:rand(-30,30),vy:-rand(40,110),
+        life:rand(0.3,0.6),max:0.6,size:rand(3,6),color:pick(['#ff6a00','#ffd23f','#fff2c0']),add:true,grav:-30});
       if(boss.hp<=0){ bossDie(); return true; } checkBossPhase();
     }
   }
@@ -344,7 +350,7 @@ const BOSS_KINDS={
     dieColors:['#fff','#bfe8ff','#ff8a1e','#ffd23f'],
     phaseLabel(){ return boss.phase===1?'ФАЗА 1 · ЛЁД' : boss.phase===2?'ФАЗА 2 · КОМПРЕССОР ОТКРЫТ' : 'ФАЗА 3 · БЕРСЕРК'; },
     spawn(b){
-      b.hp=b.maxhp=Math.round(820*diffMul());
+      b.hp=b.maxhp=Math.round(1640*diffMul()); // HP ×2
       b.w=154; b.h=Math.min(236, VH*0.42); b.cy=WORLD.groundY-b.h*0.5;
       b.x=Math.min(WORLD.w-b.w*0.6, Cam.x+VW+b.w*0.5+40); // въезжает справа
       b.state='intro'; b.intro=2.2;
@@ -545,7 +551,7 @@ const BOSS_KINDS={
     dieColors:['#fff','#bfe8ff','#dffff0','#9fe0c0'],
     phaseLabel(){ return boss.phase===1?'ФАЗА 1 · ПОЛОСКАНИЕ' : boss.phase===2?'ФАЗА 2 · ОТЖИМ · БЕЙ В БАРАБАН' : 'ФАЗА 3 · ПЕРЕЛИВ'; },
     spawn(b){
-      b.hp=b.maxhp=Math.round(980*diffMul());
+      b.hp=b.maxhp=Math.round(1960*diffMul()); // HP ×2
       b.w=150; b.h=Math.min(182, VH*0.38); b.cy=WORLD.groundY-b.h*0.5;
       b.x=Math.min(WORLD.w-b.w*0.6, Cam.x+VW+b.w*0.5+40);
       b.state='intro'; b.intro=2.2; b.iceCD=1.0; b.wallCD=3.0; b.spin=0;
@@ -626,7 +632,7 @@ const BOSS_KINDS={
     dieColors:['#fff','#9fe06a','#ffd23f','#888'],
     phaseLabel(){ return boss.phase===1?'ФАЗА 1 · ПАТРУЛЬ' : boss.phase===2?'ФАЗА 2 · ЗАЧИСТКА' : 'ФАЗА 3 · ПЕРЕГРУЗ'; },
     spawn(b){
-      b.hp=b.maxhp=Math.round(1050*diffMul());
+      b.hp=b.maxhp=Math.round(2100*diffMul()); // HP ×2
       b.w=120; b.h=72; b.hop=150; b.cy=WORLD.groundY-b.h*0.5-b.hop;
       b.x=Math.min(WORLD.w-b.w*0.6, Cam.x+VW+b.w*0.5+40);
       b.state='intro'; b.intro=2.2; b.atkCD=2.0; b.summonCD=2.0; b.bobp=0;
