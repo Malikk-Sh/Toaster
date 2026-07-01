@@ -91,6 +91,7 @@ function update(dt){
   brad.update(dt);
   updateEnemies(dt);
   updateBoss(dt);
+  updateHazards(dt);
   bossContactCheck();
   updateBossShots(dt);
   updateIceWalls(dt);
@@ -120,6 +121,7 @@ function render(t){
     drawPlatforms();
     ctx.save(); ctx.translate(-Cam.x, 0);
     drawIceWalls();
+    drawHazards();
     drawBoss();
     drawCrumbs();
     drawPickups();

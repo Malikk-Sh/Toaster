@@ -11,7 +11,7 @@ const brad={
   // модификаторы от апгрейдов (выставляются applyUpgrades)
   dmgMul:1, burnDmg:3, burnMul:1, doubleShot:false, chargeAoeMul:1,
   reflectChance:0, regen:0, enemyDeathExplode:false, toughIframes:0.85,
-  moveMul:1, pierce:false, shieldMax:0, shield:0,
+  moveMul:1, pierce:false, shieldMax:0, shield:0, slick:false,
   reset(){
     this.x=Math.min(260,WORLD.w*0.12); this.y=WORLD.groundY-this.h*0.5;
     this.vx=0;this.vy=0;this.hp=this.maxhp;this.alive=true;this.iframes=0;
@@ -61,8 +61,10 @@ const brad={
     // замедляемся только при заметном заряде (быстрые тапы не «липнут»)
     const chargeSlow = (this.charging && this.charge>0.3) ? 0.55 : 1;
     const speedMul = chargeSlow * (this.slow>0?0.5:1) * this.moveMul;
-    if(move!==0){ this.facing=move; this.vx=lerp(this.vx, move*320*speedMul, 1-Math.pow(0.0005,dt)); this.walkCycle+=dt*12*Math.abs(this.vx)/300; }
-    else this.vx=lerp(this.vx,0,1-Math.pow(0.0001,dt));
+    const accelBase = this.slick? 0.06 : 0.0005;   // на слике хуже разгон
+    const stopBase = this.slick? 0.7 : 0.0001;      // и хуже торможение (скользит)
+    if(move!==0){ this.facing=move; this.vx=lerp(this.vx, move*320*speedMul, 1-Math.pow(accelBase,dt)); this.walkCycle+=dt*12*Math.abs(this.vx)/300; }
+    else this.vx=lerp(this.vx,0,1-Math.pow(stopBase,dt));
 
     // ----- рывок -----
     if(Input.dashEdge && this.dashLeft>0 && !this.dashing){
